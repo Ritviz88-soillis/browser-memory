@@ -1,0 +1,30 @@
+# Secrets — never commit. .env.example documents what goes in .env.
+.env
+.env.*
+!.env.example
+
+# Local memory database
+*.db
+*.db-wal
+*.db-shm
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Node / WXT build output
+node_modules/
+.output/
+.wxt/
+
+# Local backups of earlier versions
+_server_backup_*/
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

@@ -1,0 +1,36 @@
+[project]
+name = "browser-memory-server"
+version = "0.1.0"
+description = "Semantic browser memory: ingest, retrieval, RAG core"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "selectolax>=0.3.21",     # fast HTML parsing of Readability output
+    "tiktoken>=0.7",          # token-budgeted chunking
+    "fastembed>=0.3.6",       # local ONNX embeddings (bge-small) — default embedder
+    "httpx>=0.27",            # Jina embeddings API; test client
+    "numpy>=1.26",            # in-memory vector search
+    "cachetools>=5.3",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "youtube-transcript-api>=1.2.4",
+    "langchain-core>=1.6.6",          # prompt | model | parser chains
+    "langchain-groq>=1.1.3",          # Groq (Llama 3.3) chat model
+    "langchain-google-genai>=4.4.0",  # Gemini chat model
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

@@ -1,0 +1,25 @@
+{
+  "name": "browser-memory-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "postinstall": "wxt prepare",
+    "gen:api": "openapi-typescript http://localhost:8000/openapi.json -o utils/api-types.d.ts"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@wxt-dev/module-react": "^1.1.0",
+    "@types/chrome": "^0.0.280",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.6.0",
+    "wxt": "^0.20.0"
+  }
+}
