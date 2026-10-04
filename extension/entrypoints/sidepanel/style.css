@@ -83,6 +83,18 @@ nav button.active { background: var(--panel); color: var(--text); font-weight: 6
 .chips { font-size: 11px; color: var(--faint); margin-bottom: 6px; }
 .sources { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; }
 .sources a { color: #93b0ff; }
+.cite {
+  background: none; border: none; padding: 0 1px; cursor: pointer;
+  color: #93b0ff; font: inherit; font-weight: 600;
+}
+.cite:hover { text-decoration: underline; }
+.sources li { margin-bottom: 5px; }
+.sources .where { display: block; color: var(--faint); font-size: 11px; }
+.sources .show {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: #ffe066; font-size: 11px;
+}
+.sources .show:hover { text-decoration: underline; }
 .sources .meta, .page-list .meta { color: var(--faint); font-size: 11px; margin-left: 4px; display: inline-block; }
 
 .related {

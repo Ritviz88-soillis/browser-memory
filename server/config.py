@@ -52,8 +52,12 @@ RELATED_CANDIDATE_CHUNKS = 40
 RELATED_QUERY_CHARS = 1500  # bge-small reads ~512 tokens; more is truncated anyway
 RELATED_SNIPPET_CHARS = 200
 
-# Current page (source [0])
+# Open tabs ("live pages"): the page is split into passages and the ones most
+# relevant to the question are cited, so a citation can point at an exact spot.
 CURRENT_PAGE_TEXT_CAP = 12_000
+LIVE_PAGE_HTML_CAP = 600_000
+LIVE_PAGE_CHAR_BUDGET = 8_000   # passage text from one open page per question
+LIVE_PAGE_CACHE_MAX = 16        # pages whose passages stay embedded in memory
 SOURCE_SNIPPET_CHARS = 300
 
 # YouTube transcripts: an hour of speech is ~10k chars

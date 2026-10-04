@@ -107,6 +107,28 @@ async def test_full_lifecycle(client):
     assert "[1]" in out["answer"], "answer must carry a validated citation"
     assert any(s["domain"] == TEST_DOMAIN for s in out["sources"])
 
+    # a question about the open page cites an exact passage of it, tagged
+    # with the tab it came from so the extension can highlight it there
+    r = await client.post(
+        "/ask",
+        json={
+            "question": "according to this page, how tall is the Glimmer tower?",
+            "no_filters": True,
+            "current_page": {
+                "url": "https://live.example/tower",
+                "title": "Glimmer tower",
+                "tab_id": 7,
+                "html": "<article><h1>Glimmer tower</h1><p>The Glimmer tower in Zarnville "
+                        "is 412 metres tall and opened in 1987.</p></article>",
+            },
+        },
+        headers=auth,
+    )
+    assert r.status_code == 200
+    live = [s for s in r.json()["sources"] if s["live"]]
+    assert live, "the answer must cite the open page"
+    assert live[0]["tab_id"] == 7 and "412 metres" in live[0]["passage"]
+
     # proactive recall: a different page on the same topic surfaces the ingested one
     topic = (
         f"The zebra quantum {marker} experiment measured decoherence of striped "

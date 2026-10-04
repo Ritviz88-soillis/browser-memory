@@ -24,6 +24,9 @@ class CurrentPageIn(BaseModel):
     url: str = Field(min_length=1, max_length=4096)
     title: Optional[str] = Field(None, max_length=1000)
     text: Optional[str] = Field(None, max_length=config.CURRENT_PAGE_TEXT_CAP)
+    # Readability article HTML; lets the server cite exact passages of the page
+    html: Optional[str] = Field(None, max_length=config.LIVE_PAGE_HTML_CAP)
+    tab_id: Optional[int] = None
 
 
 class AskIn(BaseModel):
@@ -56,6 +59,9 @@ class SourceOut(BaseModel):
     heading_path: List[str]
     visited: datetime
     snippet: str
+    passage: str                  # the exact text cited, for highlighting on the page
+    live: bool = False            # from a tab open right now
+    tab_id: Optional[int] = None
 
 
 class AskOut(BaseModel):

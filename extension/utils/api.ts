@@ -31,6 +31,9 @@ export interface SourceOut {
   heading_path: string[];
   visited: string;
   snippet: string;
+  passage: string; // the exact text cited, for highlighting on the page
+  live: boolean; // from a tab open right now
+  tab_id: number | null;
 }
 
 export interface AskOut {
@@ -81,6 +84,8 @@ export interface CurrentPage {
   url: string;
   title?: string | null;
   text?: string | null;
+  html?: string | null; // Readability article HTML, so answers cite exact passages
+  tab_id?: number | null;
 }
 
 export interface RelatedPage {

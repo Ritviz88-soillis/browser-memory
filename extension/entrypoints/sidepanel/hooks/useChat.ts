@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, AskOut } from "@/utils/api";
 import { getCurrentPageContext } from "@/utils/pageContext";
+import { showPassages } from "@/utils/passages";
 import { Conversation, saveConversation } from "@/utils/chatStore";
 
 export interface ChatMessage {
@@ -13,6 +14,22 @@ export interface ChatMessage {
 }
 
 const HISTORY_TURNS = 6;
+
+// As soon as an answer arrives, light up the passages it cites on the pages
+// that are already open — without stealing focus from the tab being read.
+async function highlightCitedOpenPassages(result: AskOut): Promise<void> {
+  const byPage = new Map<string, { url: string; tabId: number | null; passages: string[] }>();
+  for (const source of result.sources) {
+    if (!source.live) continue;
+    const key = `${source.tab_id}|${source.url}`;
+    const entry = byPage.get(key) ?? { url: source.url, tabId: source.tab_id, passages: [] };
+    entry.passages.push(source.passage);
+    byPage.set(key, entry);
+  }
+  for (const { url, tabId, passages } of byPage.values()) {
+    await showPassages(url, passages, { tabId, bringToFront: false }).catch(() => null);
+  }
+}
 
 export function useChat() {
   // fresh id per panel load = every open starts a new conversation
@@ -62,7 +79,7 @@ export function useChat() {
     ]);
 
     try {
-      const currentPage = await getCurrentPageContext();
+      const currentPage = await getCurrentPageContext({ withHtml: true });
       const result = await api.ask(question.trim(), history, currentPage);
       setMessages((m) =>
         m.map((msg) =>
@@ -71,6 +88,7 @@ export function useChat() {
             : msg,
         ),
       );
+      void highlightCitedOpenPassages(result);
     } catch (e) {
       setMessages((m) =>
         m.map((msg) =>

@@ -1,10 +1,11 @@
 """Prompt assembly and citation-validation tests — including the injection cases."""
 
 from datetime import datetime
+from types import SimpleNamespace
 
 from prompts.answer_prompt import ANSWER_PROMPT, ANSWER_SYSTEM_PROMPT
 from utils.citations import validate_citations
-from utils.formatting import Source, current_page_source, format_sources, rows_to_sources
+from utils.formatting import Source, format_sources, live_page_sources, rows_to_sources
 
 
 def src(n: int, text: str = "some content") -> Source:
@@ -17,6 +18,17 @@ def src(n: int, text: str = "some content") -> Source:
         visited=datetime(2026, 7, 20, 12, 0),
         text=text,
     )
+
+
+def row(i: int) -> dict:
+    return {
+        "title": f"T{i}",
+        "url": f"https://example.com/{i}",
+        "domain": "example.com",
+        "heading_path": [],
+        "last_visited_at": datetime(2026, 7, 20),
+        "text": "x",
+    }
 
 
 def test_valid_citations_kept_and_collected():
@@ -63,42 +75,36 @@ def test_system_prompt_pins_sources_as_data():
     p = ANSWER_SYSTEM_PROMPT.lower()
     assert "not instructions" in p
     assert "have not read" in p or "has not read" in p
+    assert "open tab" in p
 
 
 def test_retrieved_sources_are_numbered_from_one():
-    # 0 is reserved for the current page; a retrieved source must never take it
-    rows = [
-        {
-            "title": f"T{i}",
-            "url": f"https://example.com/{i}",
-            "domain": "example.com",
-            "heading_path": [],
-            "last_visited_at": datetime(2026, 7, 20),
-            "text": "x",
-        }
-        for i in range(3)
+    assert [s.n for s in rows_to_sources([row(i) for i in range(3)])] == [1, 2, 3]
+
+
+def test_live_passages_come_first_and_memory_continues_the_numbering():
+    passages = [
+        SimpleNamespace(heading_path=["Intro"], text="The story begins."),
+        SimpleNamespace(heading_path=["Intro", "Details"], text="The details follow."),
     ]
-    assert [s.n for s in rows_to_sources(rows)] == [1, 2, 3]
-
-
-def test_current_page_becomes_source_zero():
-    cur = current_page_source(
-        "https://news.example.com/story",
-        "Big Story",
-        "The story text.",
-        datetime(2026, 7, 29, 10, 0),
+    live = live_page_sources(
+        "https://news.example.com/story", "Big Story", 42, passages, datetime(2026, 7, 29, 10, 0)
     )
-    assert cur.n == 0
-    assert cur.domain == "news.example.com"
-    context = format_sources([src(1)], current_page=cur)
-    assert "[0] CURRENTLY OPEN: Big Story" in context
-    assert context.index("[0]") < context.index("[1]")
+    assert [s.n for s in live] == [1, 2]
+    assert all(s.live and s.tab_id == 42 and s.domain == "news.example.com" for s in live)
+
+    memory = rows_to_sources([row(0)], start=len(live) + 1)
+    assert [s.n for s in memory] == [3] and not memory[0].live
+
+    context = format_sources(live + memory)
+    assert "[1] OPEN TAB: Big Story" in context
+    assert "section: Intro > Details" in context
+    assert context.index("[2] OPEN TAB") < context.index("[3] T0")
+    assert "visited:" not in context.split("[3]")[0], "live sources carry no visit date"
 
 
-def test_current_page_citation_is_valid_only_when_provided():
-    cur = current_page_source("https://a.com/x", "A", "text", datetime(2026, 7, 29))
-    answer, cited = validate_citations("This page covers X [0].", [src(1), cur])
-    assert "[0]" in answer and [s.n for s in cited] == [0]
-    # without a current page, [0] is a hallucination and gets stripped
-    answer, cited = validate_citations("This page covers X [0].", [src(1)])
-    assert "[0]" not in answer and cited == []
+def test_each_live_passage_is_separately_citable():
+    passages = [SimpleNamespace(heading_path=[], text=f"passage {i}") for i in range(3)]
+    live = live_page_sources("https://a.com/x", "A", 7, passages, datetime(2026, 7, 29))
+    answer, cited = validate_citations("The second passage says so [2].", live)
+    assert [s.text for s in cited] == ["passage 1"], "the citation identifies one exact passage"
