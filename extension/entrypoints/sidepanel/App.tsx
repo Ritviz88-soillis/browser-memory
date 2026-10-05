@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, StatusOut } from "@/utils/api";
+import { onPageSent } from "@/utils/queue";
 import ChatView from "./components/ChatView";
 import PagesView from "./components/PagesView";
 import SettingsView from "./components/SettingsView";
@@ -17,6 +18,7 @@ export default function App() {
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
     async function poll() {
+      clearTimeout(timer); // an early refresh replaces the scheduled one
       let busy = false;
       try {
         const s = await api.status();
@@ -28,9 +30,12 @@ export default function App() {
       if (alive) timer = setTimeout(poll, busy ? 5000 : 30000);
     }
     void poll();
+    // refresh right after a page is sent for indexing, not 30 s later
+    const stopListening = onPageSent(() => void poll());
     return () => {
       alive = false;
       clearTimeout(timer);
+      stopListening();
     };
   }, []);
 

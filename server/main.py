@@ -26,10 +26,11 @@ async def lifespan(app: FastAPI):
     db.init()
     logger.info("memory database: %s", config.DATABASE_PATH)
 
-    # (the embedding model is already loaded: the orchestrator creates its
-    # services, including the embedder, when the router is imported)
+    orchestrator = get_orchestrator()
+    await orchestrator.warm_up()
+
     stop = asyncio.Event()
-    worker_task = asyncio.create_task(worker.run(stop, get_orchestrator()))
+    worker_task = asyncio.create_task(worker.run(stop, orchestrator))
 
     yield
 

@@ -108,6 +108,10 @@ async function noteCandidate(
   if (candidates[tabId]?.url !== url) {
     candidates[tabId] = { url, at: Date.now(), source };
     await saveCandidates(candidates);
+    // Check the moment the reading time is up. The worker stays awake for
+    // 30 s after an event, so this timer fires; the heartbeat alarm remains
+    // as the safety net for a worker that was killed in between.
+    setTimeout(() => void checkCandidates(), DWELL_MS + 300);
   }
 }
 

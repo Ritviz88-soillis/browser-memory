@@ -20,7 +20,12 @@ DATABASE_PATH = Path(os.environ.get("MEMORY_DB_PATH") or _DEFAULT_DATABASE_DIR /
 
 # Models
 EMBEDDING_MODEL = "bge-small-en-v1.5"
+# Chat model. LLM_PROVIDER is "groq", "huggingface" or "gemini"; left empty,
+# the first provider that has a key in .env is used, in that order.
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "").strip().lower()
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+HF_MODEL = os.environ.get("HF_MODEL", "meta-llama/Llama-3.3-70B-Instruct")
+HF_MAX_NEW_TOKENS = 1024
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 ANSWER_TEMPERATURE = 0.2
 QUERY_FILTER_TEMPERATURE = 0.0

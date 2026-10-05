@@ -49,7 +49,7 @@ from services.transcript_service import TranscriptService
 from utils import youtube
 from utils.citations import validate_citations
 from utils.formatting import Source, format_sources, live_page_sources, rows_to_sources
-from utils.llm import chat_model_name
+from utils.llm import LLMUnavailable, chat_model_name, describe_llm_error
 from utils.scrub import scrub
 from utils.urls import normalize_url
 
@@ -74,6 +74,15 @@ class MemoryOrchestrator:
         self._recall = RecallService()
         self._pages = PageService()
         self._devices = DeviceService()
+
+    async def warm_up(self) -> None:
+        """Run the embedding model once at startup.
+
+        Its first call is several seconds slower than the rest; paying that
+        here means the first page the user reads is indexed as fast as any.
+        """
+
+        await self._embedding.embed_passages(["warm up"])
 
     # --- indexing ----------------------------------------------------------
 
@@ -196,11 +205,17 @@ class MemoryOrchestrator:
                 answer = abstain_reason or config.ABSTAIN_TEXT
             abstained = True
         else:
-            raw_answer = await self._generation.generate(
-                question=request.question,
-                context=format_sources(sources),
-                history=request.history,
-            )
+            try:
+                raw_answer = await self._generation.generate(
+                    question=request.question,
+                    context=format_sources(sources),
+                    history=request.history,
+                )
+            except Exception as error:
+                # a used-up free quota or a dropped connection, not a bug:
+                # say so plainly instead of failing with a raw error
+                logger.warning("generation failed: %s", str(error)[:200])
+                raise LLMUnavailable(describe_llm_error(error)) from error
             # 6. Keep only citations of sources the model was actually shown
             answer, cited = validate_citations(raw_answer, sources)
             abstained = False

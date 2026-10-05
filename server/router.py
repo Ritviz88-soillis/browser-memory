@@ -21,6 +21,7 @@ from schemas import (
     StatusOut,
 )
 from utils.auth import DeviceId
+from utils.llm import LLMUnavailable
 
 router = APIRouter()
 
@@ -76,7 +77,10 @@ async def ingest(body: IngestIn, device_id: DeviceId) -> IngestOut:
 async def ask(body: AskIn, device_id: DeviceId) -> AskOut:
     """Answer a question from browsing memory, with cited sources."""
 
-    return await _orchestrator.ask(body, device_id)
+    try:
+        return await _orchestrator.ask(body, device_id)
+    except LLMUnavailable as error:
+        raise HTTPException(503, str(error)) from error
 
 
 @router.post("/related")

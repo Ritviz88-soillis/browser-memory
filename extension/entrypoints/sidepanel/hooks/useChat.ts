@@ -121,7 +121,12 @@ export function useChat() {
       setMessages((m) =>
         m.map((msg) =>
           msg.id === pendingId
-            ? { ...msg, content: String(e), error: true, pending: false }
+            ? {
+                ...msg,
+                content: e instanceof Error ? e.message : String(e),
+                error: true,
+                pending: false,
+              }
             : msg,
         ),
       );

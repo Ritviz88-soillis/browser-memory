@@ -32,24 +32,51 @@ export async function enqueue(body: IngestIn): Promise<void> {
   void drain();
 }
 
+// Message broadcast when a page has been handed to the server for indexing.
+export const PAGE_SENT = "page-sent";
+
+// Run `callback` shortly after each page is sent: the server needs about a
+// second to index it (longer for its first page), so look a few times.
+export function onPageSent(callback: (url: string) => void): () => void {
+  const timers: ReturnType<typeof setTimeout>[] = [];
+  const listener = (message: { type?: string; url?: string }) => {
+    if (message?.type !== PAGE_SENT || !message.url) return;
+    const url = message.url;
+    for (const delay of [800, 2500, 7000]) {
+      timers.push(setTimeout(() => callback(url), delay));
+    }
+  };
+  chrome.runtime.onMessage.addListener(listener);
+  return () => {
+    chrome.runtime.onMessage.removeListener(listener);
+    timers.forEach(clearTimeout);
+  };
+}
+
 let draining = false;
 
 export async function drain(): Promise<void> {
   if (draining) return; // single-flight; concurrent calls are harmless no-ops
   draining = true;
   try {
-    let items = await load();
+    const items = await load();
     const remaining: QueueItem[] = [];
     for (const item of items) {
       try {
         await api.ingest(item.body); // server dedups on idempotency_key
+        // tell the side panel (if open) so it refreshes without waiting
+        chrome.runtime
+          .sendMessage({ type: PAGE_SENT, url: item.body.url })
+          .catch(() => {});
       } catch {
         item.tries += 1;
         if (item.tries < MAX_TRIES) remaining.push(item);
         continue;
       }
     }
-    await save(remaining);
+    // keep anything queued while this drain was uploading
+    const queuedMeanwhile = (await load()).slice(items.length);
+    await save([...remaining, ...queuedMeanwhile]);
   } finally {
     draining = false;
   }

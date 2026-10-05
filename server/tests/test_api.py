@@ -1,8 +1,14 @@
-"""Full-lifecycle test through the real app: auth, idempotent enqueue, worker
-indexing, grounded ask, proactive recall, query logging, forget.
+"""Full-lifecycle test through the real app: pairing, auth, idempotent enqueue,
+worker indexing, grounded ask, tab comparison, proactive recall, query logging,
+forget.
 
-Runs against a throwaway database (see conftest). Only the /ask step needs the
-network, for the LLM — so the test is skipped when no LLM key is configured.
+Runs against a throwaway database (see conftest) and, by default, a stand-in
+language model that cites the first two sources it is shown. Everything this
+project owns — retrieval, passage selection, source numbering, citation
+validation — is exercised for real; only the wording comes from the stand-in.
+Free LLM tiers allow very few requests per day, so tests must not spend them.
+
+Set LIVE_LLM=1 to run the same test against the real model.
 """
 
 import asyncio
@@ -13,12 +19,13 @@ import uuid
 
 import httpx
 import pytest
+from langchain_core.runnables import RunnableLambda
 
 import config  # noqa: F401  (loads .env so the key check below sees it)
 
 pytestmark = pytest.mark.skipif(
     not (os.environ.get("GROQ_API_KEY") or os.environ.get("GOOGLE_API_KEY")),
-    reason="no LLM key configured",
+    reason="no LLM key configured (the app builds its chat model at startup)",
 )
 
 TEST_DOMAIN = "testpage-example.dev"
@@ -27,6 +34,18 @@ TEST_DOMAIN = "testpage-example.dev"
 @pytest.fixture
 async def client(memory):
     from main import app
+    from router import get_orchestrator
+    from services.generation_service import GenerationService
+    from services.query_filter_service import QueryFilterService
+
+    if os.environ.get("LIVE_LLM") != "1":
+        orchestrator = get_orchestrator()
+        orchestrator._generation = GenerationService(
+            model=RunnableLambda(lambda _prompt: "A grounded answer [1], with more detail [2].")
+        )
+        orchestrator._query_filter = QueryFilterService(
+            model=RunnableLambda(lambda _prompt: '{"semantic_query": "stand-in"}')
+        )
 
     memory.close()  # the app opens the (now empty) database itself
     async with app.router.lifespan_context(app):
@@ -176,6 +195,28 @@ async def test_full_lifecycle(client):
         headers=auth,
     )
     assert r.json()["abstained"] is True and "selected tabs" in r.json()["answer"]
+
+    # a used-up free quota is reported in words the user can act on
+    if os.environ.get("LIVE_LLM") != "1":
+        from router import get_orchestrator
+        from services.generation_service import GenerationService
+
+        def quota_exhausted(_prompt):
+            raise RuntimeError("429 You exceeded your current quota")
+
+        orchestrator = get_orchestrator()
+        working = orchestrator._generation
+        orchestrator._generation = GenerationService(model=RunnableLambda(quota_exhausted))
+        try:
+            r = await client.post(
+                "/ask",
+                json={"question": f"zebra quantum {marker}?", "no_filters": True},
+                headers=auth,
+            )
+        finally:
+            orchestrator._generation = working
+        assert r.status_code == 503
+        assert "free usage limit" in r.json()["detail"]
 
     # proactive recall: a different page on the same topic surfaces the ingested one
     topic = (

@@ -5,6 +5,8 @@
 import { useEffect, useState } from "react";
 import { api } from "@/utils/api";
 import { urlPassesGates } from "@/utils/gates";
+import { pageKey } from "@/utils/passages";
+import { onPageSent } from "@/utils/queue";
 import { getSettings } from "@/utils/settings";
 import { useActiveTab } from "../hooks/useActiveTab";
 
@@ -27,9 +29,11 @@ export default function ContextChip() {
         return;
       }
       try {
-        // /pages?q= ILIKEs the url column; hostname narrows, exact match decides
+        // the hostname narrows the list; the page's identity (URL without
+        // fragment or tracking parameters, as the server stores it) decides
         const pages = await api.pages(new URL(url).hostname);
-        if (alive) setState(pages.some((p) => p.url === url) ? "indexed" : "pending");
+        const key = pageKey(url);
+        if (alive) setState(pages.some((p) => pageKey(p.url) === key) ? "indexed" : "pending");
       } catch {
         if (alive) setState("pending");
       }
@@ -37,9 +41,14 @@ export default function ContextChip() {
 
     // debounce: rapid tab switching shouldn't spam the server
     const t = setTimeout(() => void check(), 300);
+    // flip to "in memory" as soon as this page has been indexed
+    const stopListening = onPageSent((sentUrl) => {
+      if (pageKey(sentUrl) === pageKey(url)) void check();
+    });
     return () => {
       alive = false;
       clearTimeout(t);
+      stopListening();
     };
   }, [tab?.url]);
 
@@ -58,7 +67,7 @@ export default function ContextChip() {
       <span className="title">{tab.title}</span>
       {domain && <span className="domain">{domain}</span>}
       {state === "indexed" && <span className="badge in">in memory</span>}
-      {state === "pending" && <span className="badge">not yet indexed</span>}
+      {state === "pending" && <span className="badge">saved after 10 s of reading</span>}
       {state === "blocked" && <span className="badge off">not indexed</span>}
     </div>
   );

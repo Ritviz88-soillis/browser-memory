@@ -99,7 +99,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     resp = await send();
   }
   if (!resp.ok) {
-    throw new Error(`${init?.method ?? "GET"} ${path} -> ${resp.status}`);
+    // the server explains failures the user can act on (e.g. the language
+    // model's free limit being used up); show that instead of a status code
+    const detail = await resp
+      .json()
+      .then((body) => body?.detail)
+      .catch(() => null);
+    throw new Error(
+      typeof detail === "string" ? detail : `${init?.method ?? "GET"} ${path} -> ${resp.status}`,
+    );
   }
   return resp.json() as Promise<T>;
 }
