@@ -108,6 +108,16 @@ select `extension/.output/chrome-mv3`. Open the side panel via the toolbar
 icon; with the server running it connects on its own (the server URL can be
 changed under Settings).
 
+Evaluation (no language model needed, your own memory is not touched):
+
+```sh
+uv run python scripts/evaluate.py            # add --rebuild to fetch the pages again
+```
+
+It indexes the pages in `evaluation/questions.json` into a separate database
+and scores vector-only, keyword-only and hybrid search on 52 questions. The
+latest results are in `evaluation/results.md`.
+
 CLI equivalents (no extension needed):
 
 ```sh

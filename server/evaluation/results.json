@@ -1,0 +1,1032 @@
+{
+  "corpus": {
+    "pending_jobs": 0,
+    "failed_jobs": 0,
+    "pages": 22,
+    "chunks": 233
+  },
+  "overall": {
+    "vector": {
+      "n": 52,
+      "hit@1": 0.8846153846153846,
+      "hit@3": 0.9615384615384616,
+      "hit@6": 0.9807692307692307,
+      "mrr": 0.9261217948717949,
+      "ms": 67.65655192318194
+    },
+    "keyword": {
+      "n": 52,
+      "hit@1": 0.7692307692307693,
+      "hit@3": 0.9423076923076923,
+      "hit@6": 0.9615384615384616,
+      "mrr": 0.8601190476190477,
+      "ms": 67.518940381258
+    },
+    "hybrid": {
+      "n": 52,
+      "hit@1": 0.9038461538461539,
+      "hit@3": 0.9423076923076923,
+      "hit@6": 0.9807692307692307,
+      "mrr": 0.9330128205128205,
+      "ms": 66.17865384144422
+    }
+  },
+  "by_kind": {
+    "keyword": {
+      "vector": {
+        "n": 35,
+        "hit@1": 0.9714285714285714,
+        "hit@3": 1.0,
+        "hit@6": 1.0,
+        "mrr": 0.9809523809523809,
+        "ms": 63.364691430303665
+      },
+      "keyword": {
+        "n": 35,
+        "hit@1": 0.8857142857142857,
+        "hit@3": 1.0,
+        "hit@6": 1.0,
+        "mrr": 0.9428571428571428,
+        "ms": 63.33370285241732
+      },
+      "hybrid": {
+        "n": 35,
+        "hit@1": 0.9714285714285714,
+        "hit@3": 1.0,
+        "hit@6": 1.0,
+        "mrr": 0.9857142857142858,
+        "ms": 62.328965712471735
+      }
+    },
+    "paraphrase": {
+      "vector": {
+        "n": 17,
+        "hit@1": 0.7058823529411765,
+        "hit@3": 0.8823529411764706,
+        "hit@6": 0.9411764705882353,
+        "mrr": 0.8132352941176471,
+        "ms": 76.49273529087247
+      },
+      "keyword": {
+        "n": 17,
+        "hit@1": 0.5294117647058824,
+        "hit@3": 0.8235294117647058,
+        "hit@6": 0.8823529411764706,
+        "mrr": 0.6897759103641457,
+        "ms": 76.13560588181238
+      },
+      "hybrid": {
+        "n": 17,
+        "hit@1": 0.7647058823529411,
+        "hit@3": 0.8235294117647058,
+        "hit@6": 0.9411764705882353,
+        "mrr": 0.8245098039215686,
+        "ms": 74.10448234226993
+      }
+    }
+  },
+  "questions": {
+    "vector": [
+      {
+        "q": "What does the else clause on a for loop do?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 81.56829996732995
+      },
+      {
+        "q": "How can I leave a loop before it has gone through every item?",
+        "kind": "paraphrase",
+        "rank": 8,
+        "ms": 76.26679999521002
+      },
+      {
+        "q": "How do default argument values work in function definitions?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 52.34609998296946
+      },
+      {
+        "q": "Why does a list given as a default parameter keep growing every time the function is called?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 81.76769997226074
+      },
+      {
+        "q": "How does the match statement work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 50.85319996578619
+      },
+      {
+        "q": "What is a lambda expression?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 46.26030003419146
+      },
+      {
+        "q": "What are the recommended conventions for indentation and line length?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 49.641799996607006
+      },
+      {
+        "q": "What does the range() function produce?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 59.59269998129457
+      },
+      {
+        "q": "What is the pass statement used for?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 47.37589997239411
+      },
+      {
+        "q": "What are list comprehensions?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 37.16170002007857
+      },
+      {
+        "q": "How do I remove an element from a list by its position?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 74.43049998255447
+      },
+      {
+        "q": "What is the difference between tuples and lists?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 43.78169996198267
+      },
+      {
+        "q": "How do sets work and what operations do they support?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 68.01310001173988
+      },
+      {
+        "q": "How do I go through two sequences side by side in one loop?",
+        "kind": "paraphrase",
+        "rank": 2,
+        "ms": 69.54220001352951
+      },
+      {
+        "q": "How do I use a list as a stack or as a queue?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 76.81699999375269
+      },
+      {
+        "q": "How do I get both the key and its value while looping over a dictionary?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 78.11419997597113
+      },
+      {
+        "q": "What is the if __name__ == \"__main__\" idiom for?",
+        "kind": "keyword",
+        "rank": 3,
+        "ms": 160.5497000273317
+      },
+      {
+        "q": "Where does the interpreter look for a file when I import it?",
+        "kind": "paraphrase",
+        "rank": 2,
+        "ms": 142.22500001778826
+      },
+      {
+        "q": "What are packages and what is __init__.py for?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 98.9316999912262
+      },
+      {
+        "q": "What does the dir() function show?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 44.84410001896322
+      },
+      {
+        "q": "How do formatted string literals (f-strings) work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 78.93580000381917
+      },
+      {
+        "q": "How do I make sure a file gets closed even if something goes wrong while reading it?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 77.59000000078231
+      },
+      {
+        "q": "How do I save structured data with json?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 51.77289998391643
+      },
+      {
+        "q": "How does the str.format() method work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 80.06419998127967
+      },
+      {
+        "q": "How do I handle exceptions with try and except?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 55.58939999900758
+      },
+      {
+        "q": "What does the finally clause do?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 46.00349999964237
+      },
+      {
+        "q": "How do I create my own kind of error?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 72.11929996265098
+      },
+      {
+        "q": "What are exception groups and except*?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 90.51830001408234
+      },
+      {
+        "q": "How do I raise an exception myself?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 76.48920000065118
+      },
+      {
+        "q": "What is the difference between class variables and instance variables?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 72.15690001612529
+      },
+      {
+        "q": "How can one class reuse the behaviour of another class?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 102.83950000302866
+      },
+      {
+        "q": "What are generators and the yield statement?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 55.10040000081062
+      },
+      {
+        "q": "How do iterators and the __next__ method work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 67.6122999866493
+      },
+      {
+        "q": "What are private variables and name mangling?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 40.40729999542236
+      },
+      {
+        "q": "What do the global and nonlocal statements do?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 83.8410000433214
+      },
+      {
+        "q": "How can I measure how long a small piece of code takes to run?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 76.01850002538413
+      },
+      {
+        "q": "How do I read command line arguments?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 59.85800002235919
+      },
+      {
+        "q": "How do I do regular expression matching with the re module?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 68.8425000407733
+      },
+      {
+        "q": "How do I download data from a web address?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 57.96609999379143
+      },
+      {
+        "q": "How does the logging module work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 49.895100004505366
+      },
+      {
+        "q": "What are weak references used for?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 37.55140001885593
+      },
+      {
+        "q": "How do I run tasks in the background while the main program keeps going?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 71.78459997521713
+      },
+      {
+        "q": "How do I create a virtual environment?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 58.43849998200312
+      },
+      {
+        "q": "How do I install a third-party library someone else wrote?",
+        "kind": "paraphrase",
+        "rank": 5,
+        "ms": 91.91820002160966
+      },
+      {
+        "q": "Why does 0.1 + 0.2 not equal 0.3?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 64.70749998698011
+      },
+      {
+        "q": "What is the default source code encoding?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 45.497799990698695
+      },
+      {
+        "q": "How does string slicing work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 35.92409996781498
+      },
+      {
+        "q": "Can I change a single character of a piece of text in place?",
+        "kind": "paraphrase",
+        "rank": 2,
+        "ms": 57.04290000721812
+      },
+      {
+        "q": "How do tab completion and history editing work in the interactive interpreter?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 54.612700012512505
+      },
+      {
+        "q": "When is SQLite a good choice and when should I use a client/server database instead?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 78.12080002622679
+      },
+      {
+        "q": "What does it mean that SQLite is serverless?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 62.43660004111007
+      },
+      {
+        "q": "Does SQLite need any installation or setup before I can use it?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 56.40170001424849
+      }
+    ],
+    "keyword": [
+      {
+        "q": "What does the else clause on a for loop do?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 44.82110001845285
+      },
+      {
+        "q": "How can I leave a loop before it has gone through every item?",
+        "kind": "paraphrase",
+        "rank": 2,
+        "ms": 77.96460000099614
+      },
+      {
+        "q": "How do default argument values work in function definitions?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 64.9013000074774
+      },
+      {
+        "q": "Why does a list given as a default parameter keep growing every time the function is called?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 111.71049997210503
+      },
+      {
+        "q": "How does the match statement work?",
+        "kind": "keyword",
+        "rank": 2,
+        "ms": 62.631000007968396
+      },
+      {
+        "q": "What is a lambda expression?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 42.51339996699244
+      },
+      {
+        "q": "What are the recommended conventions for indentation and line length?",
+        "kind": "paraphrase",
+        "rank": 2,
+        "ms": 63.49109997972846
+      },
+      {
+        "q": "What does the range() function produce?",
+        "kind": "keyword",
+        "rank": 2,
+        "ms": 48.64150000503287
+      },
+      {
+        "q": "What is the pass statement used for?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 75.71040000766516
+      },
+      {
+        "q": "What are list comprehensions?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 75.92450000811368
+      },
+      {
+        "q": "How do I remove an element from a list by its position?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 51.58599995775148
+      },
+      {
+        "q": "What is the difference between tuples and lists?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 49.96370000299066
+      },
+      {
+        "q": "How do sets work and what operations do they support?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 57.36299999989569
+      },
+      {
+        "q": "How do I go through two sequences side by side in one loop?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 70.07590000284836
+      },
+      {
+        "q": "How do I use a list as a stack or as a queue?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 59.86290000146255
+      },
+      {
+        "q": "How do I get both the key and its value while looping over a dictionary?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 69.84440004453063
+      },
+      {
+        "q": "What is the if __name__ == \"__main__\" idiom for?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 86.0535999527201
+      },
+      {
+        "q": "Where does the interpreter look for a file when I import it?",
+        "kind": "paraphrase",
+        "rank": 4,
+        "ms": 63.863800023682415
+      },
+      {
+        "q": "What are packages and what is __init__.py for?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 84.25630000419915
+      },
+      {
+        "q": "What does the dir() function show?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 41.727099975105375
+      },
+      {
+        "q": "How do formatted string literals (f-strings) work?",
+        "kind": "keyword",
+        "rank": 2,
+        "ms": 66.19029998546466
+      },
+      {
+        "q": "How do I make sure a file gets closed even if something goes wrong while reading it?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 82.6000000233762
+      },
+      {
+        "q": "How do I save structured data with json?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 62.706900003831834
+      },
+      {
+        "q": "How does the str.format() method work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 74.80499998200685
+      },
+      {
+        "q": "How do I handle exceptions with try and except?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 58.81050002062693
+      },
+      {
+        "q": "What does the finally clause do?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 51.26589996507391
+      },
+      {
+        "q": "How do I create my own kind of error?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 66.5576999890618
+      },
+      {
+        "q": "What are exception groups and except*?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 60.54390000645071
+      },
+      {
+        "q": "How do I raise an exception myself?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 57.23439995199442
+      },
+      {
+        "q": "What is the difference between class variables and instance variables?",
+        "kind": "keyword",
+        "rank": 2,
+        "ms": 55.02199998591095
+      },
+      {
+        "q": "How can one class reuse the behaviour of another class?",
+        "kind": "paraphrase",
+        "rank": 2,
+        "ms": 85.82089998526499
+      },
+      {
+        "q": "What are generators and the yield statement?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 71.62229996174574
+      },
+      {
+        "q": "How do iterators and the __next__ method work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 62.0972000178881
+      },
+      {
+        "q": "What are private variables and name mangling?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 40.09049996966496
+      },
+      {
+        "q": "What do the global and nonlocal statements do?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 75.28140000067651
+      },
+      {
+        "q": "How can I measure how long a small piece of code takes to run?",
+        "kind": "paraphrase",
+        "rank": 2,
+        "ms": 67.03139998717234
+      },
+      {
+        "q": "How do I read command line arguments?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 54.015800007618964
+      },
+      {
+        "q": "How do I do regular expression matching with the re module?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 82.74979999987409
+      },
+      {
+        "q": "How do I download data from a web address?",
+        "kind": "paraphrase",
+        "rank": null,
+        "ms": 66.11050001811236
+      },
+      {
+        "q": "How does the logging module work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 48.114500008523464
+      },
+      {
+        "q": "What are weak references used for?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 49.69869996421039
+      },
+      {
+        "q": "How do I run tasks in the background while the main program keeps going?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 85.77870001317933
+      },
+      {
+        "q": "How do I create a virtual environment?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 56.64730002172291
+      },
+      {
+        "q": "How do I install a third-party library someone else wrote?",
+        "kind": "paraphrase",
+        "rank": 3,
+        "ms": 74.97389998752624
+      },
+      {
+        "q": "Why does 0.1 + 0.2 not equal 0.3?",
+        "kind": "paraphrase",
+        "rank": 7,
+        "ms": 101.55270004179329
+      },
+      {
+        "q": "What is the default source code encoding?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 87.19050005311146
+      },
+      {
+        "q": "How does string slicing work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 107.98189998604357
+      },
+      {
+        "q": "Can I change a single character of a piece of text in place?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 94.90500000538304
+      },
+      {
+        "q": "How do tab completion and history editing work in the interactive interpreter?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 55.997999967075884
+      },
+      {
+        "q": "When is SQLite a good choice and when should I use a client/server database instead?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 86.98640001239255
+      },
+      {
+        "q": "What does it mean that SQLite is serverless?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 57.25660000462085
+      },
+      {
+        "q": "Does SQLite need any installation or setup before I can use it?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 60.438199958298355
+      }
+    ],
+    "hybrid": [
+      {
+        "q": "What does the else clause on a for loop do?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 81.4445000141859
+      },
+      {
+        "q": "How can I leave a loop before it has gone through every item?",
+        "kind": "paraphrase",
+        "rank": 4,
+        "ms": 78.90469999983907
+      },
+      {
+        "q": "How do default argument values work in function definitions?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 75.21969999652356
+      },
+      {
+        "q": "Why does a list given as a default parameter keep growing every time the function is called?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 57.78739997185767
+      },
+      {
+        "q": "How does the match statement work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 55.79449998913333
+      },
+      {
+        "q": "What is a lambda expression?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 37.76010003639385
+      },
+      {
+        "q": "What are the recommended conventions for indentation and line length?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 54.18969999300316
+      },
+      {
+        "q": "What does the range() function produce?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 48.36090002208948
+      },
+      {
+        "q": "What is the pass statement used for?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 42.28029999649152
+      },
+      {
+        "q": "What are list comprehensions?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 36.700099997688085
+      },
+      {
+        "q": "How do I remove an element from a list by its position?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 91.99289995012805
+      },
+      {
+        "q": "What is the difference between tuples and lists?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 60.79439999302849
+      },
+      {
+        "q": "How do sets work and what operations do they support?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 68.2700999896042
+      },
+      {
+        "q": "How do I go through two sequences side by side in one loop?",
+        "kind": "paraphrase",
+        "rank": 2,
+        "ms": 78.40149995172396
+      },
+      {
+        "q": "How do I use a list as a stack or as a queue?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 72.66500004334375
+      },
+      {
+        "q": "How do I get both the key and its value while looping over a dictionary?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 94.53489998122677
+      },
+      {
+        "q": "What is the if __name__ == \"__main__\" idiom for?",
+        "kind": "keyword",
+        "rank": 2,
+        "ms": 106.45040002418682
+      },
+      {
+        "q": "Where does the interpreter look for a file when I import it?",
+        "kind": "paraphrase",
+        "rank": 6,
+        "ms": 66.01579999551177
+      },
+      {
+        "q": "What are packages and what is __init__.py for?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 100.21830000914633
+      },
+      {
+        "q": "What does the dir() function show?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 54.6870999969542
+      },
+      {
+        "q": "How do formatted string literals (f-strings) work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 52.26540000876412
+      },
+      {
+        "q": "How do I make sure a file gets closed even if something goes wrong while reading it?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 82.67540001543239
+      },
+      {
+        "q": "How do I save structured data with json?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 65.9052999690175
+      },
+      {
+        "q": "How does the str.format() method work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 92.408099968452
+      },
+      {
+        "q": "How do I handle exceptions with try and except?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 50.071400008164346
+      },
+      {
+        "q": "What does the finally clause do?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 59.629399969708174
+      },
+      {
+        "q": "How do I create my own kind of error?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 61.429599998518825
+      },
+      {
+        "q": "What are exception groups and except*?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 34.16739997919649
+      },
+      {
+        "q": "How do I raise an exception myself?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 59.031999961007386
+      },
+      {
+        "q": "What is the difference between class variables and instance variables?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 85.02320002298802
+      },
+      {
+        "q": "How can one class reuse the behaviour of another class?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 71.26329996390268
+      },
+      {
+        "q": "What are generators and the yield statement?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 47.48660000041127
+      },
+      {
+        "q": "How do iterators and the __next__ method work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 69.10249998327345
+      },
+      {
+        "q": "What are private variables and name mangling?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 46.977899968624115
+      },
+      {
+        "q": "What do the global and nonlocal statements do?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 66.36320002144203
+      },
+      {
+        "q": "How can I measure how long a small piece of code takes to run?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 77.89580000098795
+      },
+      {
+        "q": "How do I read command line arguments?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 46.655000012833625
+      },
+      {
+        "q": "How do I do regular expression matching with the re module?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 57.45980003848672
+      },
+      {
+        "q": "How do I download data from a web address?",
+        "kind": "paraphrase",
+        "rank": 10,
+        "ms": 54.20600000070408
+      },
+      {
+        "q": "How does the logging module work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 55.08299998473376
+      },
+      {
+        "q": "What are weak references used for?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 41.4199999650009
+      },
+      {
+        "q": "How do I run tasks in the background while the main program keeps going?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 80.78219997696579
+      },
+      {
+        "q": "How do I create a virtual environment?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 46.59530002390966
+      },
+      {
+        "q": "How do I install a third-party library someone else wrote?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 83.00070004770532
+      },
+      {
+        "q": "Why does 0.1 + 0.2 not equal 0.3?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 63.2571000023745
+      },
+      {
+        "q": "What is the default source code encoding?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 52.424399997107685
+      },
+      {
+        "q": "How does string slicing work?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 67.09979998413473
+      },
+      {
+        "q": "Can I change a single character of a piece of text in place?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 67.09949998185039
+      },
+      {
+        "q": "How do tab completion and history editing work in the interactive interpreter?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 85.86249995278195
+      },
+      {
+        "q": "When is SQLite a good choice and when should I use a client/server database instead?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 78.83630000287667
+      },
+      {
+        "q": "What does it mean that SQLite is serverless?",
+        "kind": "keyword",
+        "rank": 1,
+        "ms": 80.99990000482649
+      },
+      {
+        "q": "Does SQLite need any installation or setup before I can use it?",
+        "kind": "paraphrase",
+        "rank": 1,
+        "ms": 96.33969998685643
+      }
+    ]
+  }
+}

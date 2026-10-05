@@ -8,6 +8,9 @@
 *.db-wal
 *.db-shm
 
+# Evaluation: downloaded pages and the evaluation index (rebuilt by the script)
+server/evaluation/cache/
+
 # Python
 .venv/
 __pycache__/

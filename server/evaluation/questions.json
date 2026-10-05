@@ -1,0 +1,91 @@
+{
+  "description": "Retrieval evaluation set. 22 documentation pages (the Python tutorial and SQLite's overview pages) and 52 questions, each with the page or pages that answer it. 'kind' is 'keyword' when the question uses the page's own terms and 'paraphrase' when it describes the idea in other words.",
+  "pages": [
+    "https://docs.python.org/3/tutorial/appetite.html",
+    "https://docs.python.org/3/tutorial/interpreter.html",
+    "https://docs.python.org/3/tutorial/introduction.html",
+    "https://docs.python.org/3/tutorial/controlflow.html",
+    "https://docs.python.org/3/tutorial/datastructures.html",
+    "https://docs.python.org/3/tutorial/modules.html",
+    "https://docs.python.org/3/tutorial/inputoutput.html",
+    "https://docs.python.org/3/tutorial/errors.html",
+    "https://docs.python.org/3/tutorial/classes.html",
+    "https://docs.python.org/3/tutorial/stdlib.html",
+    "https://docs.python.org/3/tutorial/stdlib2.html",
+    "https://docs.python.org/3/tutorial/venv.html",
+    "https://docs.python.org/3/tutorial/whatnow.html",
+    "https://docs.python.org/3/tutorial/interactive.html",
+    "https://docs.python.org/3/tutorial/floatingpoint.html",
+    "https://docs.python.org/3/tutorial/appendix.html",
+    "https://www.sqlite.org/about.html",
+    "https://www.sqlite.org/whentouse.html",
+    "https://www.sqlite.org/serverless.html",
+    "https://www.sqlite.org/onefile.html",
+    "https://www.sqlite.org/zeroconf.html",
+    "https://www.sqlite.org/selfcontained.html"
+  ],
+  "questions": [
+    {"q": "What does the else clause on a for loop do?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/controlflow.html"]},
+    {"q": "How can I leave a loop before it has gone through every item?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/controlflow.html"]},
+    {"q": "How do default argument values work in function definitions?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/controlflow.html"]},
+    {"q": "Why does a list given as a default parameter keep growing every time the function is called?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/controlflow.html"]},
+    {"q": "How does the match statement work?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/controlflow.html"]},
+    {"q": "What is a lambda expression?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/controlflow.html"]},
+    {"q": "What are the recommended conventions for indentation and line length?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/controlflow.html"]},
+    {"q": "What does the range() function produce?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/controlflow.html"]},
+    {"q": "What is the pass statement used for?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/controlflow.html"]},
+
+    {"q": "What are list comprehensions?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/datastructures.html"]},
+    {"q": "How do I remove an element from a list by its position?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/datastructures.html"]},
+    {"q": "What is the difference between tuples and lists?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/datastructures.html"]},
+    {"q": "How do sets work and what operations do they support?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/datastructures.html"]},
+    {"q": "How do I go through two sequences side by side in one loop?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/datastructures.html"]},
+    {"q": "How do I use a list as a stack or as a queue?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/datastructures.html"]},
+    {"q": "How do I get both the key and its value while looping over a dictionary?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/datastructures.html"]},
+
+    {"q": "What is the if __name__ == \"__main__\" idiom for?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/modules.html"]},
+    {"q": "Where does the interpreter look for a file when I import it?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/modules.html"]},
+    {"q": "What are packages and what is __init__.py for?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/modules.html"]},
+    {"q": "What does the dir() function show?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/modules.html"]},
+
+    {"q": "How do formatted string literals (f-strings) work?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/inputoutput.html"]},
+    {"q": "How do I make sure a file gets closed even if something goes wrong while reading it?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/inputoutput.html", "https://docs.python.org/3/tutorial/errors.html"]},
+    {"q": "How do I save structured data with json?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/inputoutput.html"]},
+    {"q": "How does the str.format() method work?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/inputoutput.html"]},
+
+    {"q": "How do I handle exceptions with try and except?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/errors.html"]},
+    {"q": "What does the finally clause do?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/errors.html"]},
+    {"q": "How do I create my own kind of error?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/errors.html"]},
+    {"q": "What are exception groups and except*?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/errors.html"]},
+    {"q": "How do I raise an exception myself?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/errors.html"]},
+
+    {"q": "What is the difference between class variables and instance variables?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/classes.html"]},
+    {"q": "How can one class reuse the behaviour of another class?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/classes.html"]},
+    {"q": "What are generators and the yield statement?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/classes.html"]},
+    {"q": "How do iterators and the __next__ method work?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/classes.html"]},
+    {"q": "What are private variables and name mangling?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/classes.html"]},
+    {"q": "What do the global and nonlocal statements do?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/classes.html"]},
+
+    {"q": "How can I measure how long a small piece of code takes to run?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/stdlib.html"]},
+    {"q": "How do I read command line arguments?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/stdlib.html", "https://docs.python.org/3/tutorial/interpreter.html"]},
+    {"q": "How do I do regular expression matching with the re module?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/stdlib.html"]},
+    {"q": "How do I download data from a web address?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/stdlib.html"]},
+
+    {"q": "How does the logging module work?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/stdlib2.html"]},
+    {"q": "What are weak references used for?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/stdlib2.html"]},
+    {"q": "How do I run tasks in the background while the main program keeps going?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/stdlib2.html"]},
+
+    {"q": "How do I create a virtual environment?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/venv.html"]},
+    {"q": "How do I install a third-party library someone else wrote?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/venv.html"]},
+
+    {"q": "Why does 0.1 + 0.2 not equal 0.3?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/floatingpoint.html"]},
+    {"q": "What is the default source code encoding?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/interpreter.html"]},
+    {"q": "How does string slicing work?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/introduction.html"]},
+    {"q": "Can I change a single character of a piece of text in place?", "kind": "paraphrase", "gold": ["https://docs.python.org/3/tutorial/introduction.html"]},
+    {"q": "How do tab completion and history editing work in the interactive interpreter?", "kind": "keyword", "gold": ["https://docs.python.org/3/tutorial/interactive.html"]},
+
+    {"q": "When is SQLite a good choice and when should I use a client/server database instead?", "kind": "keyword", "gold": ["https://www.sqlite.org/whentouse.html"]},
+    {"q": "What does it mean that SQLite is serverless?", "kind": "keyword", "gold": ["https://www.sqlite.org/serverless.html"]},
+    {"q": "Does SQLite need any installation or setup before I can use it?", "kind": "paraphrase", "gold": ["https://www.sqlite.org/zeroconf.html"]}
+  ]
+}

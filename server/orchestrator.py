@@ -428,6 +428,35 @@ class MemoryOrchestrator:
             latency_ms=latency_ms,
         )
 
+    async def retrieve(
+        self,
+        question: str,
+        top: int = config.RETRIEVAL_TOP_K,
+        use_vectors: bool = True,
+        use_keywords: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """Search memory for a question, without generating an answer.
+
+        No language model is involved: the question is embedded locally and
+        searched as it stands. The evaluation uses this to compare vector,
+        keyword and combined search.
+
+        Args:
+            question: The question, used directly as the search query.
+            top: How many chunks to return.
+            use_vectors: Include the vector ranking.
+            use_keywords: Include the keyword ranking.
+
+        Returns:
+            The matching chunks with their page details, best first.
+        """
+
+        query_vector = await self._embedding.embed_query(question)
+        rows, _ = self._retrieval.search(
+            ParsedQuery(semantic_query=question), query_vector, top, use_vectors, use_keywords
+        )
+        return rows
+
     async def _understand_question(self, request: AskIn, comparing_tabs: bool) -> ParsedQuery:
         """Work out what to search for, and any date or site filters.
 

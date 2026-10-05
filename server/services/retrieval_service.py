@@ -20,6 +20,8 @@ class RetrievalService:
         parsed: ParsedQuery,
         query_vector: Sequence[float],
         top: int = config.RETRIEVAL_TOP_K,
+        use_vectors: bool = True,
+        use_keywords: bool = True,
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
         """Run filtered hybrid search for a parsed question.
 
@@ -27,6 +29,9 @@ class RetrievalService:
             parsed: The topical query and its date/site filters.
             query_vector: The embedding of the topical query.
             top: How many chunks to return.
+            use_vectors: Include the vector ranking.
+            use_keywords: Include the keyword ranking. Turning one of the two
+                off is how the evaluation compares the search modes.
 
         Returns:
             The matching chunks (best first) and, when the question names a
@@ -47,6 +52,8 @@ class RetrievalService:
             until=parsed.until,
             domains=domains,
             limit=top,
+            use_vectors=use_vectors,
+            use_keywords=use_keywords,
         )
         return rows, None
 
