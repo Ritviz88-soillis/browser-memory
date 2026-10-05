@@ -633,16 +633,21 @@ def related_pages(
 
 
 def known_domains(domains: Iterable[str]) -> List[str]:
-    """The subset of these domains that has at least one indexed page."""
+    """Indexed sites matching the given domains, subdomains included.
 
-    domains = list(domains)
-    if not domains:
+    "wikipedia.org" matches pages stored under "en.wikipedia.org": people name
+    a site, not the exact host it is served from.
+    """
+
+    wanted = [domain.lower().removeprefix("www.") for domain in domains]
+    if not wanted:
         return []
-    rows = _db().execute(
-        f"SELECT DISTINCT domain FROM pages WHERE domain IN ({', '.join('?' * len(domains))})",
-        domains,
-    ).fetchall()
-    return [row["domain"] for row in rows]
+    stored = [row["domain"] for row in _db().execute("SELECT DISTINCT domain FROM pages")]
+    return [
+        domain
+        for domain in stored
+        if any(domain == name or domain.endswith("." + name) for name in wanted)
+    ]
 
 
 # --- pages panel -----------------------------------------------------------

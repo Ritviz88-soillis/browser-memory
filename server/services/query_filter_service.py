@@ -105,6 +105,9 @@ class QueryFilterService:
                 one (tests inject a fake here).
         """
 
+        # Uses the same large model as answers. A small model was tried here
+        # (Llama 3.1 8B) and got relative dates wrong: "last week" a day off,
+        # "yesterday" not parsed at all — and it was no faster.
         model = model or build_chat_model(config.QUERY_FILTER_TEMPERATURE)
         self._chain = QUERY_FILTER_PROMPT | model | StrOutputParser()
 

@@ -77,6 +77,18 @@ def test_date_and_site_filters(memory):
     assert memory.known_domains(["food.com", "never-visited.com"]) == ["food.com"]
 
 
+def test_a_site_name_matches_its_subdomains(memory):
+    save(memory, "https://en.wikipedia.org/wiki/SQLite", "en.wikipedia.org", "SQLite is a database engine.", DATABASES)
+    save(memory, "https://notwikipedia.org/x", "notwikipedia.org", "An unrelated site.", COOKING)
+
+    assert memory.known_domains(["wikipedia.org"]) == ["en.wikipedia.org"]
+    assert memory.known_domains(["WWW.Wikipedia.org"]) == ["en.wikipedia.org"]
+    assert memory.known_domains(["pedia.org"]) == [], "a suffix of a name is not a subdomain"
+
+    rows = memory.hybrid_search(DATABASES, "database", domains=memory.known_domains(["wikipedia.org"]))
+    assert [r["domain"] for r in rows] == ["en.wikipedia.org"]
+
+
 def test_unchanged_page_is_detected_and_changed_page_replaces_chunks(memory):
     text = "Postgres uses MVCC so readers never block writers."
     page_id = save(memory, "https://pg.dev/mvcc", "pg.dev", text, DATABASES)

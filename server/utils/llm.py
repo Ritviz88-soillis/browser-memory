@@ -105,16 +105,18 @@ def build_chat_model(temperature: float) -> BaseChatModel:
     if not os.environ.get(_KEY_FOR_PROVIDER[name]):
         raise RuntimeError(f"{_KEY_FOR_PROVIDER[name]} is not set in server/.env")
 
+    model = chat_model_name()
+
     if name == "groq":
         from langchain_groq import ChatGroq
 
-        return ChatGroq(model=config.GROQ_MODEL, temperature=temperature)
+        return ChatGroq(model=model, temperature=temperature)
 
     if name == "huggingface":
         from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 
         endpoint = HuggingFaceEndpoint(
-            repo_id=config.HF_MODEL,
+            repo_id=model,
             task="text-generation",
             # the endpoint rejects a temperature of exactly zero
             temperature=max(temperature, 0.01),
@@ -124,4 +126,4 @@ def build_chat_model(temperature: float) -> BaseChatModel:
 
     from langchain_google_genai import ChatGoogleGenerativeAI
 
-    return ChatGoogleGenerativeAI(model=config.GEMINI_MODEL, temperature=temperature)
+    return ChatGoogleGenerativeAI(model=model, temperature=temperature)
