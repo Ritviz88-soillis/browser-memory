@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { SourceOut } from "@/utils/api";
-import { pageKey, passageOf, showPassages } from "@/utils/passages";
+import { openPdfAt, pageKey, passageOf, pdfPageOf, showPassages } from "@/utils/passages";
 import { ChatMessage } from "../hooks/useChat";
 import AnswerText from "./AnswerText";
 
@@ -59,6 +59,15 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
     const result = await showPassages(source.url, [passageOf(source)], {
       tabId: source.tab_id,
     }).catch(() => null);
+
+    // a PDF cannot be highlighted, but it can be opened at the cited page
+    const pdfPage = result === null ? pdfPageOf(source) : null;
+    if (pdfPage !== null) {
+      await openPdfAt(source.url, pdfPage, source.tab_id).catch(() => null);
+      setMissing((m) => m.filter((n) => n !== source.n));
+      return;
+    }
+
     setMissing((m) =>
       result && result.found > 0 ? m.filter((n) => n !== source.n) : [...m, source.n],
     );

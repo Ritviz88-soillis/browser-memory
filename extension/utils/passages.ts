@@ -87,6 +87,39 @@ export async function showPassages(
   return sendToContentScript<HighlightResult>(tab.id, { type: "highlight", passages });
 }
 
+// Which page of a PDF a cited passage is on. PDF passages are stored with a
+// "Page N" heading per page; a passage spanning pages carries the markers in
+// its text, and the one just before the supporting sentence is used.
+export function pdfPageOf(source: SourceOut): number | null {
+  const text = source.passage ?? "";
+  const firstKey = source.highlights?.[0];
+  const upTo = firstKey ? text.indexOf(firstKey) : -1;
+  const before = upTo >= 0 ? text.slice(0, upTo) : text;
+
+  const inText = [...before.matchAll(/(?:^|\n\n)Page (\d+)(?=\n\n|$)/g)].at(-1);
+  if (inText) return Number(inText[1]);
+
+  const heading = /^Page (\d+)$/.exec(source.heading_path.at(-1) ?? "");
+  return heading ? Number(heading[1]) : null;
+}
+
+// The browser's PDF viewer cannot be highlighted, but it can be opened at a
+// page: reuse the tab showing this PDF if there is one.
+export async function openPdfAt(
+  url: string,
+  page: number,
+  tabId: number | null = null,
+): Promise<void> {
+  const target = `${url.split("#")[0]}#page=${page}`;
+  const tab = await findTab(url, tabId);
+  if (tab?.id) {
+    await chrome.tabs.update(tab.id, { url: target, active: true });
+    if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
+  } else {
+    await chrome.tabs.create({ url: target, active: true });
+  }
+}
+
 export async function clearPassages(tabId: number): Promise<void> {
   await sendToContentScript(tabId, { type: "clear-highlight" });
 }

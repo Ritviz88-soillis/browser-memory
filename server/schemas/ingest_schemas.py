@@ -27,9 +27,21 @@ class IngestIn(BaseModel):
     url: str = Field(min_length=10, max_length=4096)
     title: Optional[str] = Field(None, max_length=1000)
     lang: Optional[str] = Field(None, max_length=16)
-    html: str = Field(min_length=1, max_length=2_000_000)  # 2 MB cap
+    html: str = Field(min_length=1, max_length=config.INGEST_HTML_MAX_CHARS)
     visit: VisitIn
     model: str = config.EMBEDDING_MODEL
+
+
+class IngestPdfIn(BaseModel):
+    """A PDF the user is reading. The browser's PDF viewer cannot be read by
+    an extension, so the file itself is sent (base64) and read on the server."""
+
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    url: str = Field(min_length=10, max_length=4096)
+    title: Optional[str] = Field(None, max_length=1000)
+    # base64 is 4/3 the size of the file it encodes
+    pdf_base64: str = Field(min_length=1, max_length=config.PDF_MAX_BYTES * 4 // 3 + 4)
+    visit: VisitIn
 
 
 class IngestOut(BaseModel):

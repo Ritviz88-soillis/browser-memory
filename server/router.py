@@ -15,6 +15,7 @@ from schemas import (
     ForgetOut,
     IngestIn,
     IngestOut,
+    IngestPdfIn,
     PageOut,
     PairOut,
     RelatedOut,
@@ -69,6 +70,16 @@ async def ingest(body: IngestIn, device_id: DeviceId) -> IngestOut:
 
     try:
         return await _orchestrator.ingest(body, device_id)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@router.post("/ingest/pdf", status_code=202)
+async def ingest_pdf(body: IngestPdfIn, device_id: DeviceId) -> IngestOut:
+    """Queue a PDF for indexing; its text is extracted on the server."""
+
+    try:
+        return await _orchestrator.ingest_pdf(body, device_id)
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
 

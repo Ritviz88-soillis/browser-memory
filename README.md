@@ -33,6 +33,7 @@ browser-memory/
 │   │   ├── evidence_service.py      # checks each cited sentence against its
 │   │   │                            #   source; picks the sentences to highlight
 │   │   ├── transcript_service.py    # YouTube transcripts
+│   │   ├── pdf_service.py           # PDF text, one section per page
 │   │   ├── recall_service.py        # proactive recall: related pages, no LLM
 │   │   ├── query_log_service.py     # record of every question and answer
 │   │   └── page_service.py          # status, list, forget

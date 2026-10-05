@@ -7,7 +7,7 @@ from .ask_schemas import (
     SourceOut,
 )
 from .device_schemas import PairOut
-from .ingest_schemas import IngestIn, IngestOut, VisitIn
+from .ingest_schemas import IngestIn, IngestOut, IngestPdfIn, VisitIn
 from .page_schemas import ForgetOut, PageOut, StatusOut
 from .query_schemas import ParsedQuery
 from .recall_schemas import RelatedOut, RelatedPageOut
@@ -25,6 +25,7 @@ __all__ = [
     "HistoryTurn",
     "IngestIn",
     "IngestOut",
+    "IngestPdfIn",
     "PageOut",
     "SourceOut",
     "StatusOut",

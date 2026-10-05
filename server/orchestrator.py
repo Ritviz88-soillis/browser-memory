@@ -16,6 +16,7 @@ indexed or a question is asked, read the matching method here top to bottom.
 """
 
 import asyncio
+import base64
 import logging
 import time
 from datetime import datetime, timezone
@@ -31,6 +32,7 @@ from schemas import (
     FilterOut,
     IngestIn,
     IngestOut,
+    IngestPdfIn,
     PageOut,
     PairOut,
     ParsedQuery,
@@ -46,6 +48,7 @@ from services.generation_service import GenerationService
 from services.ingestion_service import IngestionService
 from services.live_page_service import LivePageService
 from services.page_service import PageService
+from services.pdf_service import PdfService
 from services.query_filter_service import QueryFilterService
 from services.query_log_service import QueryLogService
 from services.recall_service import RecallService
@@ -79,6 +82,7 @@ class MemoryOrchestrator:
         self._query_log = QueryLogService()
         self._recall = RecallService()
         self._pages = PageService()
+        self._pdf = PdfService()
         self._devices = DeviceService()
 
     async def warm_up(self) -> None:
@@ -107,6 +111,37 @@ class MemoryOrchestrator:
         result = self._ingestion.enqueue(request, device_id)
         worker.notify()
         return result
+
+    async def ingest_pdf(self, request: IngestPdfIn, device_id: str) -> IngestOut:
+        """Queue a PDF the user is reading for background indexing.
+
+        Args:
+            request: The PDF file (base64) and its visit details.
+            device_id: The device that read it.
+
+        Returns:
+            Whether the PDF was queued or was a duplicate.
+
+        Raises:
+            ValueError: If the file is not a readable PDF or has no text.
+        """
+
+        # 1. Decode the file and extract its text, one section per page
+        try:
+            data = base64.b64decode(request.pdf_base64, validate=True)
+        except ValueError as error:
+            raise ValueError("the PDF was not sent in a readable form") from error
+        article_html = await asyncio.to_thread(self._pdf.to_html, data, request.title)
+
+        # 2. From here a PDF is indexed exactly like a web page
+        page = IngestIn(
+            idempotency_key=request.idempotency_key,
+            url=request.url,
+            title=request.title,
+            html=article_html[: config.INGEST_HTML_MAX_CHARS],
+            visit=request.visit,
+        )
+        return await self.ingest(page, device_id)
 
     async def process_job(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Index one queued page (called by the background worker).
@@ -316,15 +351,22 @@ class MemoryOrchestrator:
         """
 
         # a. Choose the page's content: a video's transcript, else what the
-        #    extension extracted, else the copy already in memory
+        #    extension extracted
         transcript = await self._transcript_for(page.url)
-        stored_text = None
-        if not (transcript or page.html or page.text):
-            stored_text = self._pages.stored_text(normalize_url(page.url)[0])
+        article_html = self._live_pages.article_html(page, transcript)
 
-        article_html = self._live_pages.article_html(page, transcript, stored_text)
         if not article_html:
-            return None
+            # The tab could not be read live (a PDF in the browser's viewer,
+            # an orphaned content script). If the page is in memory, use its
+            # stored passages as they are: they keep their headings, such as
+            # the PDF page number, and are already embedded.
+            stored = self._pages.stored_passages(normalize_url(page.url)[0])
+            if stored is None:
+                return None
+            fingerprint, passages, vectors = stored
+            return self._live_pages.cached_passages(
+                page.url, fingerprint
+            ) or self._live_pages.cache_passages(page.url, fingerprint, passages, vectors)
 
         # b. Chunk and embed it — once per page; follow-up questions reuse it
         cached = self._live_pages.cached_passages(page.url, article_html)

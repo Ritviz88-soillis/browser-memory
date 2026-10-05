@@ -23,6 +23,27 @@ export interface IngestIn {
   model?: string;
 }
 
+// A PDF the user is reading: the file is sent and read on the server,
+// because an extension cannot read text out of the browser's PDF viewer.
+export interface IngestPdfIn {
+  idempotency_key: string;
+  url: string;
+  title?: string | null;
+  pdf_base64: string;
+  visit: VisitIn;
+}
+
+// A failed request, with the HTTP status so callers can tell "try again
+// later" (server down) from "this will never work" (422: not a readable PDF).
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+
 export interface SourceOut {
   n: number;
   title: string;
@@ -106,8 +127,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       .json()
       .then((body) => body?.detail)
       .catch(() => null);
-    throw new Error(
+    throw new ApiError(
       typeof detail === "string" ? detail : `${init?.method ?? "GET"} ${path} -> ${resp.status}`,
+      resp.status,
     );
   }
   return resp.json() as Promise<T>;
@@ -146,6 +168,11 @@ export interface StatusOut {
 export const api = {
   ingest: (body: IngestIn) =>
     request<{ queued: boolean; duplicate: boolean }>("/ingest", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  ingestPdf: (body: IngestPdfIn) =>
+    request<{ queued: boolean; duplicate: boolean }>("/ingest/pdf", {
       method: "POST",
       body: JSON.stringify(body),
     }),

@@ -149,16 +149,35 @@ async function extractAndQueue(
   dwellMs: number,
 ): Promise<void> {
   const resp = await requestExtraction(tabId);
-  if (!resp?.ok || !resp.html) return; // no content script or nothing readable
+  const visit = {
+    started_at: new Date(cand.at).toISOString(),
+    dwell_ms: Math.min(dwellMs, 3_600_000),
+    scroll_depth_pct: resp?.scrollDepth ?? null,
+    referrer_url: cand.referrer ?? null,
+    tab_id: tabId,
+    source: cand.source,
+  };
+
+  if (!resp) {
+    // The tab cannot be scripted at all. On a web URL that almost always
+    // means the browser's PDF viewer, which extensions cannot read. Queue a
+    // reference: the file is downloaded and its type checked at upload time,
+    // so anything that is not a PDF is dropped there.
+    if (await alreadySeen(`pdf:${cand.url}`)) return;
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    await enqueue({
+      kind: "pdf",
+      idempotency_key: crypto.randomUUID(),
+      url: cand.url,
+      title: tab?.title ?? null,
+      visit,
+    });
+    return;
+  }
+  if (!resp.ok || !resp.html) return; // a page with nothing readable
 
   // content-hash dedup: a revisit of unchanged content costs one hash lookup
-  const digest = await sha256Hex(resp.html);
-  const hashes: string[] =
-    (await chrome.storage.local.get(HASHES_KEY))[HASHES_KEY] ?? [];
-  if (hashes.includes(digest)) return;
-  await chrome.storage.local.set({
-    [HASHES_KEY]: [...hashes.slice(-HASH_LRU + 1), digest],
-  });
+  if (await alreadySeen(await sha256Hex(resp.html))) return;
 
   await enqueue({
     idempotency_key: crypto.randomUUID(),
@@ -166,15 +185,19 @@ async function extractAndQueue(
     title: resp.title,
     lang: resp.lang,
     html: resp.html,
-    visit: {
-      started_at: new Date(cand.at).toISOString(),
-      dwell_ms: Math.min(dwellMs, 3_600_000),
-      scroll_depth_pct: resp.scrollDepth ?? null,
-      referrer_url: cand.referrer ?? null,
-      tab_id: tabId,
-      source: cand.source,
-    },
+    visit,
   });
+}
+
+// True if this content (by fingerprint) was already sent; otherwise records it.
+async function alreadySeen(fingerprint: string): Promise<boolean> {
+  const hashes: string[] =
+    (await chrome.storage.local.get(HASHES_KEY))[HASHES_KEY] ?? [];
+  if (hashes.includes(fingerprint)) return true;
+  await chrome.storage.local.set({
+    [HASHES_KEY]: [...hashes.slice(-HASH_LRU + 1), fingerprint],
+  });
+  return false;
 }
 
 async function sha256Hex(text: string): Promise<string> {

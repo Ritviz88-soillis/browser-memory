@@ -680,6 +680,34 @@ def page_text_for_url(url: str) -> Optional[str]:
     return row["extracted_text"] if row else None
 
 
+def page_chunks(url: str) -> Optional[Dict[str, Any]]:
+    """The stored passages of an indexed URL, with their embeddings.
+
+    Returns:
+        ``{"content_hash", "chunks"}`` where each chunk has ``heading_path``,
+        ``text`` and ``embedding``, in page order; None if the URL is not indexed.
+    """
+
+    page = find_page(url)
+    if page is None:
+        return None
+    rows = _db().execute(
+        "SELECT heading_path, text, embedding FROM chunks WHERE page_id = ? ORDER BY ordinal",
+        (page["id"],),
+    ).fetchall()
+    return {
+        "content_hash": page["content_hash"],
+        "chunks": [
+            {
+                "heading_path": json.loads(row["heading_path"]),
+                "text": row["text"],
+                "embedding": np.frombuffer(row["embedding"], dtype=np.float32).tolist(),
+            }
+            for row in rows
+        ],
+    }
+
+
 def list_pages(*, limit: int = 50, offset: int = 0, q: Optional[str] = None) -> List[Dict[str, Any]]:
     """Indexed pages, most recently visited first, optionally filtered by a
     substring of the title or URL."""

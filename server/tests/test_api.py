@@ -294,15 +294,68 @@ async def test_full_lifecycle(client):
     )
     assert r.json()["pages"] == []
 
+    # a PDF: the file itself is sent, read page by page, and indexed. The tab
+    # cannot be read live, so a question about it uses the stored passages,
+    # which still know their page number.
+    import base64
+
+    from test_pdf import PAPER
+
+    pdf_url = f"https://{TEST_DOMAIN}/papers/{marker}.pdf"
+    r = await client.post(
+        "/ingest/pdf",
+        json={
+            "idempotency_key": f"pytest-pdf-{marker}",
+            "url": pdf_url,
+            "title": f"{marker}.pdf",
+            "pdf_base64": base64.b64encode(PAPER).decode(),
+            "visit": {"started_at": "2026-07-29T10:05:00+00:00", "dwell_ms": 40000},
+        },
+        headers=auth,
+    )
+    assert r.status_code == 202 and r.json()["queued"] is True
+    for _ in range(100):
+        if (await client.get("/pages", params={"q": f"{marker}.pdf"}, headers=auth)).json():
+            break
+        await asyncio.sleep(0.1)
+    else:
+        pytest.fail("the PDF was not indexed in time")
+
+    r = await client.post(
+        "/ask",
+        json={
+            "question": "what did participants use smartphones for?",
+            "no_filters": True,
+            "current_page": {"url": pdf_url, "title": f"{marker}.pdf", "tab_id": 21},
+        },
+        headers=auth,
+    )
+    from_pdf = [s for s in r.json()["sources"] if s["live"]]
+    assert from_pdf and from_pdf[0]["tab_id"] == 21
+    assert any("Page" in " ".join(s["heading_path"]) or "Page" in s["passage"] for s in from_pdf)
+
+    r = await client.post(
+        "/ingest/pdf",
+        json={
+            "idempotency_key": f"pytest-notpdf-{marker}",
+            "url": pdf_url,
+            "pdf_base64": base64.b64encode(b"not a pdf").decode(),
+            "visit": {"started_at": "2026-07-29T10:05:00+00:00"},
+        },
+        headers=auth,
+    )
+    assert r.status_code == 422 and "could not be read as a PDF" in r.json()["detail"]
+
     # the question was logged for the eval harness
     logged = db._db().execute(
         "SELECT count(*) FROM queries WHERE question LIKE ?", (f"%{marker}%",)
     ).fetchone()[0]
     assert logged == 1
 
-    # forget the site: its page is gone and it can't be indexed again
+    # forget the site: its pages (the article and the PDF) are gone and it
+    # can't be indexed again
     r = await client.delete(f"/sites/{TEST_DOMAIN}", headers=auth)
-    assert r.status_code == 200 and r.json()["deleted"] == 1
+    assert r.status_code == 200 and r.json()["deleted"] == 2
     r = await client.get("/pages", params={"q": TEST_DOMAIN}, headers=auth)
     assert r.json() == []
 

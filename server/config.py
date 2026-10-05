@@ -99,6 +99,12 @@ TRANSCRIPT_TEXT_CAP = 24_000
 TRANSCRIPT_LANGUAGES = ["en", "en-US", "en-IN", "hi"]
 TRANSCRIPT_CACHE_MAX = 200
 
+INGEST_HTML_MAX_CHARS = 2_000_000  # largest page (as article HTML) accepted for indexing
+
+# PDFs: the extension sends the file, the server extracts its text per page
+PDF_MAX_BYTES = 20_000_000
+PDF_MAX_PAGES = 300
+
 # Background ingest worker (woken as soon as a page arrives; the poll is a fallback)
 WORKER_POLL_SECONDS = 2.0
 WORKER_BATCH_SIZE = 4

@@ -5,15 +5,57 @@
 // drain runs both opportunistically (on enqueue) and from the heartbeat alarm
 // so items stranded by a kill are retried.
 
-import { api, IngestIn } from "./api";
+import { api, ApiError, IngestIn, VisitIn } from "./api";
 
 const KEY = "ingest_queue";
 const MAX_QUEUE = 100;
 const MAX_TRIES = 5;
+const PDF_MAX_BYTES = 20_000_000; // mirrors the server's PDF_MAX_BYTES
+
+// A PDF waits in the queue as a reference only: the file is downloaded at
+// upload time, because files are far too large for extension storage.
+export interface PdfRef {
+  kind: "pdf";
+  idempotency_key: string;
+  url: string;
+  title?: string | null;
+  visit: VisitIn;
+}
 
 interface QueueItem {
-  body: IngestIn;
+  body: IngestIn | PdfRef;
   tries: number;
+}
+
+function toBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  // in pieces: one call with millions of arguments overflows the stack
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
+// Download the PDF (with the user's cookies, so files behind a login work)
+// and hand it to the server. Returns false when the URL turns out not to be
+// a PDF, or is too large: there is nothing to index and nothing to retry.
+async function uploadPdf(ref: PdfRef): Promise<boolean> {
+  const resp = await fetch(ref.url, { credentials: "include" });
+  if (!resp.ok) throw new Error(`could not download ${ref.url}: ${resp.status}`);
+  if (!(resp.headers.get("content-type") ?? "").includes("pdf")) return false;
+
+  const file = await resp.arrayBuffer();
+  if (file.byteLength > PDF_MAX_BYTES) return false;
+
+  await api.ingestPdf({
+    idempotency_key: ref.idempotency_key,
+    url: ref.url,
+    title: ref.title,
+    pdf_base64: toBase64(file),
+    visit: ref.visit,
+  });
+  return true;
 }
 
 async function load(): Promise<QueueItem[]> {
@@ -25,7 +67,7 @@ async function save(items: QueueItem[]): Promise<void> {
   await chrome.storage.local.set({ [KEY]: items.slice(-MAX_QUEUE) });
 }
 
-export async function enqueue(body: IngestIn): Promise<void> {
+export async function enqueue(body: IngestIn | PdfRef): Promise<void> {
   const items = await load();
   items.push({ body, tries: 0 });
   await save(items);
@@ -63,12 +105,18 @@ export async function drain(): Promise<void> {
     const remaining: QueueItem[] = [];
     for (const item of items) {
       try {
-        await api.ingest(item.body); // server dedups on idempotency_key
-        // tell the side panel (if open) so it refreshes without waiting
-        chrome.runtime
-          .sendMessage({ type: PAGE_SENT, url: item.body.url })
-          .catch(() => {});
-      } catch {
+        // the server dedups on idempotency_key, so a retry is harmless
+        const sent = "kind" in item.body ? await uploadPdf(item.body) : (await api.ingest(item.body), true);
+        if (sent) {
+          // tell the side panel (if open) so it refreshes without waiting
+          chrome.runtime
+            .sendMessage({ type: PAGE_SENT, url: item.body.url })
+            .catch(() => {});
+        }
+      } catch (e) {
+        // 422: the server read the file and it has no usable text (a
+        // scanned PDF, say). Retrying cannot change that.
+        if (e instanceof ApiError && e.status === 422) continue;
         item.tries += 1;
         if (item.tries < MAX_TRIES) remaining.push(item);
         continue;

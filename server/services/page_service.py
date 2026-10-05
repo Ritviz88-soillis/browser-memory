@@ -1,10 +1,19 @@
 """The indexed-pages panel: status counters, listing, and forgetting."""
 
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
 
 import config
 import db
 from schemas import PageOut, StatusOut
+
+
+@dataclass(slots=True)
+class StoredPassage:
+    """One passage of an indexed page."""
+
+    text: str
+    heading_path: List[str]
 
 
 class PageService:
@@ -26,6 +35,31 @@ class PageService:
         """
 
         return db.page_text_for_url(url)
+
+    def stored_passages(self, url: str) -> Optional[Tuple[str, List[StoredPassage], List[List[float]]]]:
+        """Return an indexed page's passages exactly as they were stored.
+
+        Used when the open tab cannot be read live (a PDF in the browser's
+        viewer): its indexed passages keep their section headings, such as
+        the page number, and need no re-embedding.
+
+        Args:
+            url: The page's normalized URL.
+
+        Returns:
+            The content fingerprint, the passages in page order and their
+            embeddings; None if the page is not in memory.
+        """
+
+        stored = db.page_chunks(url)
+        if stored is None or not stored["chunks"]:
+            return None
+        passages = [
+            StoredPassage(text=chunk["text"], heading_path=chunk["heading_path"])
+            for chunk in stored["chunks"]
+        ]
+        vectors = [chunk["embedding"] for chunk in stored["chunks"]]
+        return stored["content_hash"], passages, vectors
 
     async def status(self) -> StatusOut:
         """Return the live indexing counters.
