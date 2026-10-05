@@ -344,6 +344,118 @@ def save_page(
     return page_id
 
 
+def save_document_batch(
+    *,
+    job_id: Optional[int],
+    payload: Dict[str, Any],
+    page_id: Optional[str],
+    device_id: Optional[str],
+    domain: str,
+    url: str,
+    raw_url: str,
+    title: Optional[str],
+    text: str,
+    chunks: Sequence[ChunkRow],
+    visit: Dict[str, Any],
+) -> Optional[str]:
+    """Store one batch of a long document AND the job's progress, in ONE
+    transaction. A long document (a 100-page PDF) is indexed in batches; if
+    the server stops, the job resumes after the last batch that was saved,
+    and because the batch and its progress commit together, a batch can never
+    be stored twice or lost.
+
+    The first batch with text creates the page (replacing any earlier copy of
+    the same URL); later batches append to it.
+
+    Args:
+        job_id: The job to record progress on (None when run outside the queue).
+        payload: The job payload to save, with its ``progress`` already
+            updated; ``progress["page_id"]`` is filled in here.
+        page_id: The page being built, or None before the first batch with text.
+        text: This batch's canonical text (chunk offsets must already be
+            shifted to the document's full text).
+        chunks: This batch's chunks; may be empty (blank pages).
+
+    Returns:
+        The page id, or None if no batch has had any text yet.
+    """
+
+    global _vector_index
+    now = _now()
+
+    with _db() as connection:
+        if chunks and page_id is None:
+            existing = find_page(url)
+            if existing:
+                page_id = existing["id"]
+                _delete_chunks(connection, page_id)
+                connection.execute(
+                    """
+                    UPDATE pages SET title = ?, extracted_text = ?, content_hash = '',
+                                     word_count = ?, indexed_at = ?
+                     WHERE id = ?
+                    """,
+                    (title, text, len(text.split()), now, page_id),
+                )
+            else:
+                page_id = uuid.uuid4().hex
+                started_at = _iso(visit["started_at"])
+                connection.execute(
+                    """
+                    INSERT INTO pages (id, url, domain, title, extracted_text, content_hash,
+                                       word_count, first_visited_at, last_visited_at, indexed_at)
+                    VALUES (?, ?, ?, ?, ?, '', ?, ?, ?, ?)
+                    """,
+                    (page_id, url, domain, title, text, len(text.split()), started_at, started_at, now),
+                )
+            _insert_visit(connection, page_id, device_id, raw_url, visit)
+        elif chunks:
+            connection.execute(
+                """
+                UPDATE pages SET extracted_text = extracted_text || char(10) || char(10) || ?,
+                                 word_count = word_count + ?, indexed_at = ?
+                 WHERE id = ?
+                """,
+                (text, len(text.split()), now, page_id),
+            )
+
+        for chunk in chunks:
+            cursor = connection.execute(
+                """
+                INSERT INTO chunks (page_id, ordinal, heading_path, text, token_count,
+                                    char_start, char_end, embedding)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (page_id, chunk.ordinal, json.dumps(chunk.heading_path), chunk.text,
+                 chunk.token_count, chunk.char_start, chunk.char_end,
+                 np.asarray(chunk.embedding, dtype=np.float32).tobytes()),
+            )
+            connection.execute(
+                "INSERT INTO chunks_fts (rowid, text) VALUES (?, ?)",
+                (cursor.lastrowid, chunk.text),
+            )
+
+        if job_id is not None:
+            payload["progress"]["page_id"] = page_id
+            connection.execute(
+                "UPDATE jobs SET payload = ? WHERE id = ?", (json.dumps(payload), job_id)
+            )
+
+    if chunks:
+        _vector_index = None
+    return page_id
+
+
+def finish_document(page_id: str, fingerprint: str) -> None:
+    """Mark a document built in batches as complete, recording its fingerprint
+    so the same file opened again is recognised and not re-indexed."""
+
+    with _db() as connection:
+        connection.execute(
+            "UPDATE pages SET content_hash = ? WHERE id = ?", (fingerprint, page_id)
+        )
+
+
 def _insert_visit(
     connection: sqlite3.Connection,
     page_id: str,

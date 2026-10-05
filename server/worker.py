@@ -47,7 +47,7 @@ async def run(stop: asyncio.Event, orchestrator) -> None:
 
         for job in jobs:
             try:
-                await orchestrator.process_job(job["payload"])
+                await orchestrator.process_job(job["payload"], job["id"])
                 db.finish_job(job["id"])
             except Exception as error:  # a bad page must not kill the loop
                 logger.exception("job %s failed (attempt %s)", job["id"], job["attempts"])

@@ -123,36 +123,42 @@ class MemoryOrchestrator:
             Whether the PDF was queued or was a duplicate.
 
         Raises:
-            ValueError: If the file is not a readable PDF or has no text.
+            ValueError: If what was sent is not a PDF file.
         """
 
-        # 1. Decode the file and extract its text, one section per page
+        # 1. Decode the file and check it is a PDF at all
         try:
             data = base64.b64decode(request.pdf_base64, validate=True)
         except ValueError as error:
             raise ValueError("the PDF was not sent in a readable form") from error
-        article_html = await asyncio.to_thread(self._pdf.to_html, data, request.title)
+        if not self._pdf.looks_like_pdf(data):
+            raise ValueError("this file could not be read as a PDF")
 
-        # 2. From here a PDF is indexed exactly like a web page
-        page = IngestIn(
-            idempotency_key=request.idempotency_key,
-            url=request.url,
-            title=request.title,
-            html=article_html[: config.INGEST_HTML_MAX_CHARS],
-            visit=request.visit,
-        )
-        return await self.ingest(page, device_id)
+        # 2. Park it on disk and queue a job pointing at it. Nothing is read
+        #    here: a long PDF is worked through in batches by the worker.
+        logger.info("queueing PDF '%s' (%d KB)", request.url, len(data) // 1024)
+        result = self._ingestion.enqueue_pdf(request, data, device_id)
+        worker.notify()
+        return result
 
-    async def process_job(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Index one queued page (called by the background worker).
+    async def process_job(
+        self,
+        payload: Dict[str, Any],
+        job_id: Optional[int] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Index one queued page or PDF (called by the background worker).
 
         Args:
             payload: The job payload written at ingest time.
+            job_id: The queue job, so a long document can save its progress.
 
         Returns:
             The page id and whether new content was indexed, or None when the
             page was skipped (blocked site, or nothing readable).
         """
+
+        if payload.get("kind") == "pdf":
+            return await self._process_pdf(payload, job_id)
 
         url, domain = normalize_url(payload["url"])
 
@@ -180,6 +186,101 @@ class MemoryOrchestrator:
         # 6. Store page, chunks and visit in one transaction
         page_id = self._ingestion.store(payload, url, domain, extracted_text, chunks, vectors)
         return {"page_id": page_id, "new_content": True}
+
+    async def _process_pdf(
+        self,
+        payload: Dict[str, Any],
+        job_id: Optional[int],
+    ) -> Optional[Dict[str, Any]]:
+        """Index a parked PDF a few pages at a time.
+
+        Each batch is read, chunked, embedded and saved before the next one
+        starts. So the first pages are searchable within a second or two, a
+        question asked meanwhile is answered between batches, and if the
+        server stops, the job resumes after the last batch that was saved.
+
+        Args:
+            payload: The job payload; ``progress`` is present when resuming.
+            job_id: The queue job to record progress on.
+
+        Returns:
+            The page id and whether new content was indexed, or None when the
+            PDF was skipped (blocked site, unreadable, or no text).
+        """
+
+        url, domain = normalize_url(payload["url"])
+        path = payload["pdf_path"]
+
+        # 1. Skip sites the user asked to forget
+        if self._ingestion.is_blocked(domain):
+            self._ingestion.discard_pdf(payload)
+            return None
+
+        # 2. A fresh job (not one being resumed): count the pages, and stop
+        #    here if this exact file is already in memory
+        if "progress" not in payload:
+            try:
+                total_pages = await asyncio.to_thread(self._pdf.page_count, path)
+            except ValueError as error:
+                logger.warning("skipping PDF '%s': %s", payload["url"], error)
+                self._ingestion.discard_pdf(payload)
+                return None
+
+            page_id = self._ingestion.record_pdf_revisit(url, payload)
+            if page_id:
+                self._ingestion.discard_pdf(payload)
+                return {"page_id": page_id, "new_content": False}
+
+            payload["title"] = await asyncio.to_thread(self._pdf.title, path) or payload.get("title")
+            payload["progress"] = {
+                "pages_done": 0,
+                "total_pages": total_pages,
+                "page_id": None,
+                "chunks": 0,
+                "text_chars": 0,
+                "furniture": None,
+            }
+
+        # 3. Work through the remaining pages, one batch at a time
+        progress = payload["progress"]
+        while progress["pages_done"] < progress["total_pages"]:
+            start = progress["pages_done"]
+            stop = min(start + config.PDF_PAGES_PER_BATCH, progress["total_pages"])
+
+            # a. Read this batch's pages; the first batch also learns which
+            #    lines are running headers and footers
+            pages = await asyncio.to_thread(self._pdf.read_pages, path, start, stop)
+            if progress["furniture"] is None:
+                progress["furniture"] = self._pdf.furniture(pages)
+            article_html = self._pdf.pages_html(
+                pages, start + 1, progress["furniture"], payload.get("title")
+            )
+
+            # b. Scrub secrets, then split into passages (each keeps its
+            #    "Page N" heading; the bare title heading is not a passage)
+            extracted_text, chunks = "", []
+            if article_html:
+                extracted_text, chunks = self._chunking.chunk(scrub(article_html).text)
+                chunks = [chunk for chunk in chunks if chunk.text.strip() != (payload.get("title") or "")]
+
+            # c. Embed the batch
+            vectors = await self._embedding.embed_passages([chunk.text for chunk in chunks])
+
+            # d. Save the batch and the progress together
+            progress = self._ingestion.store_pdf_batch(
+                job_id, payload, url, domain, extracted_text, chunks, vectors, pages_done=stop
+            )
+            logger.info("PDF '%s': %d of %d pages", payload["url"], stop, progress["total_pages"])
+
+            # e. Let anything that was waiting (a question, say) run
+            await asyncio.sleep(0)
+
+        # 4. Done: record the file's fingerprint and remove the parked file
+        self._ingestion.finish_pdf(payload)
+        if progress["page_id"] is None:
+            logger.warning("PDF '%s' has no readable text (scanned?)", payload["url"])
+            return None
+        return {"page_id": progress["page_id"], "new_content": True}
 
     # --- asking ------------------------------------------------------------
 

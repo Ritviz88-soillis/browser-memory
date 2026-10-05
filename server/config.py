@@ -20,6 +20,10 @@ DATABASE_PATH = Path(os.environ.get("MEMORY_DB_PATH") or _DEFAULT_DATABASE_DIR /
 
 # Models
 EMBEDDING_MODEL = "bge-small-en-v1.5"
+# Passages are embedded this many at a time, with the model released in
+# between (measured: 28 passages took 3.2 s as one batch).
+EMBEDDING_SLICE = 4
+
 # Chat model. LLM_PROVIDER is "groq", "huggingface" or "gemini"; left empty,
 # the first provider that has a key in .env is used, in that order.
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "").strip().lower()
@@ -104,6 +108,11 @@ INGEST_HTML_MAX_CHARS = 2_000_000  # largest page (as article HTML) accepted for
 # PDFs: the extension sends the file, the server extracts its text per page
 PDF_MAX_BYTES = 20_000_000
 PDF_MAX_PAGES = 300
+# A long PDF is indexed a few pages at a time: each batch is saved before the
+# next starts, so the first pages are searchable at once, a question can be
+# answered between batches, and a stopped server resumes where it left off.
+PDF_PAGES_PER_BATCH = 10
+PDF_SPOOL_DIR = DATABASE_PATH.parent / "pdf_queue"  # files waiting to be indexed
 
 # Background ingest worker (woken as soon as a page arrives; the poll is a fallback)
 WORKER_POLL_SECONDS = 2.0

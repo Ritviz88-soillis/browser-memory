@@ -45,14 +45,19 @@ class LocalEmbeddingService:
             One vector per text, in the same order.
         """
 
-        if not texts:
-            return []
-
-        async with self._lock:
-            # CPU-bound: keep it off the event loop
-            return await asyncio.to_thread(
-                lambda: [vector.tolist() for vector in self._model.passage_embed(texts)]
-            )
+        vectors: List[List[float]] = []
+        # A few texts at a time, releasing the model between slices: a
+        # question asked while a long document is being indexed gets its turn
+        # after one slice instead of after the whole batch. It is also faster:
+        # a big batch pads every text to the longest one.
+        for start in range(0, len(texts), config.EMBEDDING_SLICE):
+            piece = texts[start : start + config.EMBEDDING_SLICE]
+            async with self._lock:
+                # CPU-bound: keep it off the event loop
+                vectors += await asyncio.to_thread(
+                    lambda: [vector.tolist() for vector in self._model.passage_embed(piece)]
+                )
+        return vectors
 
     async def embed_query(self, text: str) -> List[float]:
         """Embed a user question for search.
