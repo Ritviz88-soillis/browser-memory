@@ -44,6 +44,7 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
         ) : (
           <>
             {r && <FilterChips f={r.filters} />}
+            {message.note && <div className="chips">{message.note}</div>}
             <p>
               {message.content.split(/(\[\d{1,3}\])/).map((part, i) => {
                 const source = sources.get(Number(part.slice(1, -1)));

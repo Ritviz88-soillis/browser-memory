@@ -22,7 +22,10 @@ about this. Do not answer from general knowledge.
 5. Sources marked OPEN TAB are passages from pages open in the user's browser RIGHT NOW. \
 Use them for questions about "this page", "the current page", or what the user is looking at. \
 Cite the specific passage each point comes from, so the user can be taken to that exact place.
-6. Be concise. Answer first, no preamble."""
+6. When OPEN TAB passages come from several different pages, the user is summarising or \
+comparing those tabs: cover every tab, name the page each point comes from, and say plainly \
+when a tab does not contain the information asked about.
+7. Be concise. Answer first, no preamble."""
 
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [

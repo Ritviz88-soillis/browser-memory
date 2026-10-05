@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, AskOut } from "@/utils/api";
-import { getCurrentPageContext } from "@/utils/pageContext";
+import { api, AskOut, CurrentPage } from "@/utils/api";
+import { getCurrentPageContext, getPageContext } from "@/utils/pageContext";
 import { showPassages } from "@/utils/passages";
 import { Conversation, saveConversation } from "@/utils/chatStore";
 
@@ -9,11 +9,22 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   result?: AskOut; // sources + filters, assistant turns only
+  note?: string; // e.g. a ticked tab that couldn't be read
   error?: boolean;
   pending?: boolean;
 }
 
 const HISTORY_TURNS = 6;
+
+async function readTab(tabId: number): Promise<CurrentPage | null> {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  return tab ? getPageContext(tab, { withHtml: true }) : null;
+}
+
+// A video page has no article text, but the server can fetch its transcript.
+function isReadable(page: CurrentPage): boolean {
+  return Boolean(page.html || page.text) || /youtube\.com|youtu\.be/.test(page.url);
+}
 
 // As soon as an answer arrives, light up the passages it cites on the pages
 // that are already open — without stealing focus from the tab being read.
@@ -56,7 +67,9 @@ export function useChat() {
     });
   }, [messages, conversationId]);
 
-  async function send(question: string) {
+  // tabIds: tabs ticked in the picker. When given, the answer comes from
+  // those tabs only; otherwise from memory plus the page open right now.
+  async function send(question: string, tabIds: number[] = []) {
     if (busy || !question.trim()) return;
     setBusy(true);
 
@@ -79,12 +92,27 @@ export function useChat() {
     ]);
 
     try {
-      const currentPage = await getCurrentPageContext({ withHtml: true });
-      const result = await api.ask(question.trim(), history, currentPage);
+      let currentPage: CurrentPage | null = null;
+      let tabs: CurrentPage[] = [];
+      let note: string | undefined;
+
+      if (tabIds.length) {
+        const picked = await Promise.all(tabIds.map(readTab));
+        tabs = picked.filter((p): p is CurrentPage => p !== null && isReadable(p));
+        const unread = tabIds.length - tabs.length;
+        if (!tabs.length) throw new Error("None of the selected tabs could be read.");
+        if (unread) {
+          note = `${unread} selected ${unread === 1 ? "tab" : "tabs"} couldn't be read (a sleeping tab needs to be opened once).`;
+        }
+      } else {
+        currentPage = await getCurrentPageContext({ withHtml: true });
+      }
+
+      const result = await api.ask(question.trim(), history, currentPage, tabs);
       setMessages((m) =>
         m.map((msg) =>
           msg.id === pendingId
-            ? { ...msg, content: result.answer, result, pending: false }
+            ? { ...msg, content: result.answer, result, note, pending: false }
             : msg,
         ),
       );

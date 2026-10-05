@@ -45,27 +45,42 @@ class RAGService:
         """
 
         started = time.monotonic()
+        comparing_tabs = bool(request.tabs)
 
-        # 1. Extract date/site filters from the question
-        if request.no_filters:
+        # 1. Extract date/site filters from the question (not needed when the
+        #    user has ticked the tabs to answer from)
+        if request.no_filters or comparing_tabs:
             parsed = ParsedQuery(semantic_query=request.question)
         else:
             parsed = await self._query_filter.parse(request.question)
 
-        # 2. Pick the relevant passages of the page open right now
-        live_pages = [request.current_page] if request.current_page else []
-        sources = await self._live_sources(live_pages, parsed.semantic_query)
+        # 2. Pick the relevant passages of the open pages: the ticked tabs,
+        #    or else the page open right now
+        if comparing_tabs:
+            live_pages = request.tabs
+            budget_per_page = config.COMPARE_TABS_CHAR_BUDGET // len(live_pages)
+        else:
+            live_pages = [request.current_page] if request.current_page else []
+            budget_per_page = config.LIVE_PAGE_CHAR_BUDGET
+        sources = await self._live_sources(live_pages, parsed.semantic_query, budget_per_page)
 
-        # 3. Retrieve matching chunks from memory (the open page's own copy in
-        #    memory is dropped: its live passages already cover it)
-        rows, abstain_reason = await self._retrieval.retrieve(parsed, request.top)
-        rows = self._without_pages(rows, live_pages)
-        sources += rows_to_sources(rows, start=len(sources) + 1)
+        # 3. Retrieve matching chunks from memory — unless tabs were ticked,
+        #    which means "answer from these". The open page's own copy in
+        #    memory is dropped: its live passages already cover it.
+        rows: List[Dict[str, Any]] = []
+        abstain_reason: Optional[str] = None
+        if not comparing_tabs:
+            rows, abstain_reason = await self._retrieval.retrieve(parsed, request.top)
+            rows = self._without_pages(rows, live_pages)
+            sources += rows_to_sources(rows, start=len(sources) + 1)
 
         # 4. Generate, then keep only citations of sources the model was shown
         cited: List[Source] = []
         if not sources:
-            answer = abstain_reason or config.ABSTAIN_TEXT
+            if comparing_tabs:
+                answer = config.UNREADABLE_TABS_TEXT
+            else:
+                answer = abstain_reason or config.ABSTAIN_TEXT
             abstained = True
         else:
             raw_answer = await self._generation.generate(
@@ -103,12 +118,14 @@ class RAGService:
         self,
         pages: List[CurrentPageIn],
         question: str,
+        budget_per_page: int,
     ) -> List[Source]:
         """Build numbered sources from the passages of the open pages.
 
         Args:
             pages: The open tabs sent with the question.
             question: The topical part of the user's question.
+            budget_per_page: Maximum characters of passage text from each page.
 
         Returns:
             Live sources numbered from 1, page by page.
@@ -117,7 +134,7 @@ class RAGService:
         now = datetime.now(timezone.utc)
         sources: List[Source] = []
         for page in pages:
-            passages = await self._live_pages.passages(page, question)
+            passages = await self._live_pages.passages(page, question, budget_per_page)
             sources += live_page_sources(
                 page.url,
                 page.title,

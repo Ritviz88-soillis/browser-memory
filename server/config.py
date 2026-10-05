@@ -58,6 +58,10 @@ CURRENT_PAGE_TEXT_CAP = 12_000
 LIVE_PAGE_HTML_CAP = 600_000
 LIVE_PAGE_CHAR_BUDGET = 8_000   # passage text from one open page per question
 LIVE_PAGE_CACHE_MAX = 16        # pages whose passages stay embedded in memory
+# Comparing several ticked tabs: the budget is shared equally between them
+MAX_COMPARE_TABS = 5
+COMPARE_TABS_CHAR_BUDGET = 14_000
+UNREADABLE_TABS_TEXT = "I couldn't read any text from the selected tabs."
 SOURCE_SNIPPET_CHARS = 300
 
 # YouTube transcripts: an hour of speech is ~10k chars

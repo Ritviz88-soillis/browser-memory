@@ -115,10 +115,11 @@ export const api = {
     question: string,
     history: HistoryTurn[] = [],
     currentPage: CurrentPage | null = null,
+    tabs: CurrentPage[] = [], // ticked tabs: answer from these only
   ) =>
     request<AskOut>("/ask", {
       method: "POST",
-      body: JSON.stringify({ question, history, current_page: currentPage }),
+      body: JSON.stringify({ question, history, current_page: currentPage, tabs }),
     }),
   related: (page: CurrentPage) =>
     request<{ pages: RelatedPage[] }>("/related", {

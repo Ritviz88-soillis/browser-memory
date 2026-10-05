@@ -129,6 +129,39 @@ async def test_full_lifecycle(client):
     assert live, "the answer must cite the open page"
     assert live[0]["tab_id"] == 7 and "412 metres" in live[0]["passage"]
 
+    # comparing ticked tabs: the answer draws on each tab and on nothing else,
+    # even though memory holds a page (the zebra notes) that could match
+    def tab(tab_id: int, name: str, price: str) -> dict:
+        return {
+            "url": f"https://shop.example/{name.lower()}",
+            "title": f"{name} laptop",
+            "tab_id": tab_id,
+            "html": f"<article><h1>{name} laptop</h1><p>The {name} laptop costs {price} rupees, "
+                    f"weighs 1.4 kg and its battery lasts 11 hours.</p></article>",
+        }
+
+    r = await client.post(
+        "/ask",
+        json={
+            "question": "compare the price of these laptops, and mention the zebra quantum experiment",
+            "tabs": [tab(11, "Aurora", "61,000"), tab(12, "Borealis", "74,500")],
+        },
+        headers=auth,
+    )
+    assert r.status_code == 200
+    compared = r.json()
+    assert {s["tab_id"] for s in compared["sources"]} == {11, 12}, "both tabs are cited"
+    assert all(s["live"] for s in compared["sources"]), "memory is not searched when tabs are ticked"
+    assert compared["filters"]["semantic_query"].startswith("compare the price")
+
+    # ticked tabs with nothing readable get a clear message, not a guess
+    r = await client.post(
+        "/ask",
+        json={"question": "summarise these", "tabs": [{"url": "https://empty.example/a", "tab_id": 13}]},
+        headers=auth,
+    )
+    assert r.json()["abstained"] is True and "selected tabs" in r.json()["answer"]
+
     # proactive recall: a different page on the same topic surfaces the ingested one
     topic = (
         f"The zebra quantum {marker} experiment measured decoherence of striped "

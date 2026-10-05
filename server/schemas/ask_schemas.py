@@ -38,6 +38,9 @@ class AskIn(BaseModel):
     # last few turns for follow-up questions; capped to bound prompt size
     history: List[HistoryTurn] = Field(default_factory=list, max_length=6)
     current_page: Optional[CurrentPageIn] = None
+    # Tabs the user ticked to summarise or compare. When given, the answer
+    # comes from these tabs only (memory is not searched).
+    tabs: List[CurrentPageIn] = Field(default_factory=list, max_length=config.MAX_COMPARE_TABS)
 
 
 class FilterOut(BaseModel):
