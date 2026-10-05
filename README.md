@@ -83,10 +83,13 @@ uv run pytest              # only tests/test_api.py needs an LLM key
 uv run uvicorn main:app --port 8000
 ```
 
-Pair a device (prints a bearer token once):
+Pairing is automatic: the extension asks the server for its access token on
+first use (`POST /pair`, answered only for a browser-extension origin, and
+only for the first extension that asks). To pair something else by hand —
+curl, a second browser — create a token yourself:
 
 ```sh
-uv run python scripts/new_device.py --label my-chrome
+uv run python scripts/new_device.py --label my-script
 ```
 
 Extension (Node >= 20):
@@ -99,7 +102,8 @@ npm run build              # or: npm run dev (auto-reloads)
 
 Load it: Chrome → chrome://extensions → Developer mode → "Load unpacked" →
 select `extension/.output/chrome-mv3`. Open the side panel via the toolbar
-icon → Settings → paste server URL + device token → Save.
+icon; with the server running it connects on its own (the server URL can be
+changed under Settings).
 
 CLI equivalents (no extension needed):
 
