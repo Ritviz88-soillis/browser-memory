@@ -17,6 +17,8 @@ from typing import Any, Dict, List
 import httpx
 from fastembed import TextEmbedding
 
+import config
+
 
 class LocalEmbeddingService:
     """bge-small via fastembed (ONNX, CPU): unmetered, text never leaves the machine."""
@@ -175,3 +177,37 @@ def get_embedder(model_id: str):
         _instances[model_id] = _EMBEDDERS[model_id]()
 
     return _instances[model_id]
+
+
+class EmbeddingService:
+    """The embedding stage, using the model this memory was built with."""
+
+    def __init__(self) -> None:
+        """Load the configured embedder (shared across the app)."""
+
+        self._embedder = get_embedder(config.EMBEDDING_MODEL)
+        self.model_id = self._embedder.model_id
+
+    async def embed_passages(self, texts: List[str]) -> List[List[float]]:
+        """Embed page text for storage or comparison.
+
+        Args:
+            texts: Passages of page text.
+
+        Returns:
+            One vector per passage, in the same order.
+        """
+
+        return await self._embedder.embed_passages(texts)
+
+    async def embed_query(self, text: str) -> List[float]:
+        """Embed a user question for search.
+
+        Args:
+            text: The question (or its topical part).
+
+        Returns:
+            The query vector.
+        """
+
+        return await self._embedder.embed_query(text)

@@ -4,7 +4,7 @@ Usage:
     uv run python scripts/ask.py "what did I read about MVCC yesterday?"
     uv run python scripts/ask.py "..." --no-parse   # skip filter extraction
 
-Runs the same RAGService the API uses: parse filters -> hybrid retrieval ->
+Runs the same orchestrator the API uses: parse filters -> hybrid retrieval ->
 grounded generation -> citation validation.
 """
 
@@ -17,8 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config  # noqa: E402
 import db  # noqa: E402
+from orchestrator import MemoryOrchestrator  # noqa: E402
 from schemas import AskIn  # noqa: E402
-from services.rag_service import RAGService  # noqa: E402
 
 
 async def main() -> None:
@@ -30,7 +30,7 @@ async def main() -> None:
 
     db.init()
     try:
-        result = await RAGService().answer(
+        result = await MemoryOrchestrator().ask(
             AskIn(question=args.question, top=args.top, no_filters=args.no_parse),
             device_id=None,
         )

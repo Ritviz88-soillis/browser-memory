@@ -8,9 +8,11 @@ from .ask_schemas import (
 )
 from .ingest_schemas import IngestIn, IngestOut, VisitIn
 from .page_schemas import ForgetOut, PageOut, StatusOut
+from .query_schemas import ParsedQuery
 from .recall_schemas import RelatedOut, RelatedPageOut
 
 __all__ = [
+    "ParsedQuery",
     "RelatedOut",
     "RelatedPageOut",
     "AskIn",

@@ -10,6 +10,23 @@ from schemas import PageOut, StatusOut
 class PageService:
     """Reads and deletes what is in memory."""
 
+    def ping(self) -> None:
+        """Check the memory database is usable (raises if it is not)."""
+
+        db.ping()
+
+    def stored_text(self, url: str) -> Optional[str]:
+        """Return the text of an already-indexed page.
+
+        Args:
+            url: The page's normalized URL.
+
+        Returns:
+            The stored text, or None if the page is not in memory.
+        """
+
+        return db.page_text_for_url(url)
+
     async def status(self) -> StatusOut:
         """Return the live indexing counters.
 

@@ -19,19 +19,20 @@ browser-memory/
 │   ├── main.py           # FastAPI app + lifespan (database, ingest worker)
 │   ├── config.py         # every tunable: models, chunk sizes, top-k, caps
 │   ├── router.py         # HTTP endpoints — thin, hand off to the orchestrator
-│   ├── orchestrator.py   # MemoryOrchestrator: thin delegate to the services
+│   ├── orchestrator.py   # EVERY flow as numbered steps; the only caller of services
 │   ├── schemas/          # Pydantic request/response models (the wire contract)
 │   ├── prompts/          # answer_prompt.py, query_filter_prompt.py
-│   ├── services/
-│   │   ├── rag_service.py           # THE BRAIN for asking: filter → retrieve → generate
-│   │   ├── ingestion_service.py     # THE BRAIN for indexing: scrub → chunk → embed → store
-│   │   ├── chunking_service.py      # stage: heading-aware chunks with overlap
-│   │   ├── embedding_service.py     # stage: local bge-small / Jina embeddings
-│   │   ├── query_filter_service.py  # stage: date + site filters from the question
-│   │   ├── retrieval_service.py     # stage: hybrid (vector + keyword) search
-│   │   ├── generation_service.py    # stage: prompt | chat model | parser
-│   │   ├── transcript_service.py    # YouTube transcripts for the open tab
+│   ├── services/         # one job each; no service imports another
+│   │   ├── chunking_service.py      # heading-aware chunks with overlap
+│   │   ├── embedding_service.py     # local bge-small / Jina embeddings
+│   │   ├── ingestion_service.py     # the indexing queue; storing a processed page
+│   │   ├── query_filter_service.py  # date + site filters from the question
+│   │   ├── retrieval_service.py     # hybrid (vector + keyword) search of memory
+│   │   ├── live_page_service.py     # which passages of an open tab to cite
+│   │   ├── generation_service.py    # prompt | chat model | parser
+│   │   ├── transcript_service.py    # YouTube transcripts
 │   │   ├── recall_service.py        # proactive recall: related pages, no LLM
+│   │   ├── query_log_service.py     # record of every question and answer
 │   │   └── page_service.py          # status, list, forget
 │   ├── utils/            # stateless helpers: llm (model factory), formatting,
 │   │                     #   citations, scrub, urls, youtube, auth
@@ -49,13 +50,19 @@ over all chunk embeddings held in memory. The file lives outside the project
 folder on purpose: the project is in OneDrive, and syncing a live database
 file can corrupt it.
 
-Placement rules (same as the t1 module and naive-rag):
+Placement rules:
 
-* **Request path**: `router.py` → `orchestrator.py` → a brain service →
-  stage services. The router and orchestrator hold no logic.
-* **A whole stage algorithm** gets its own class in `services/`. The two
-  brain services (`rag_service`, `ingestion_service`) only sequence stages
-  and apply policy (when to abstain, what gets logged).
+* **Request path**: `router.py` → `orchestrator.py` → services. The router
+  holds no logic.
+* **The orchestrator owns the sequence.** Each flow (index a page, answer a
+  question, find related pages) is one method written as numbered steps.
+  It is the only file that calls services, and it also holds the small
+  decisions between steps (when to abstain, how sources are numbered).
+* **Services are independent.** Each does one job and imports no other
+  service. When a stage needs another's output — retrieval needs the
+  question's embedding, storage needs the chunks — the orchestrator fetches
+  it and passes it in as an argument. `tests/test_architecture.py` enforces
+  both rules.
 * **Shared, stateless transforms** are module-level functions in `utils/`.
 * **LLM calls live in one place**: `utils/llm.py` picks the chat model
   (Groq if `GROQ_API_KEY` is set, else Gemini); each chain is

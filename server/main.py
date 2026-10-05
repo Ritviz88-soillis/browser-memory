@@ -11,7 +11,6 @@ import config
 import db
 import worker
 from router import get_orchestrator, router
-from services.embedding_service import get_embedder
 
 logging.basicConfig(level=logging.INFO)
 # request URLs can carry credentials; keep HTTP client chatter out of the log
@@ -27,9 +26,8 @@ async def lifespan(app: FastAPI):
     db.init()
     logger.info("memory database: %s", config.DATABASE_PATH)
 
-    # load the embedding model now, so the first page isn't the slow one
-    await asyncio.to_thread(get_embedder, config.EMBEDDING_MODEL)
-
+    # (the embedding model is already loaded: the orchestrator creates its
+    # services, including the embedder, when the router is imported)
     stop = asyncio.Event()
     worker_task = asyncio.create_task(worker.run(stop, get_orchestrator()))
 

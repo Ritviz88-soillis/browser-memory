@@ -3,7 +3,7 @@
 Usage:
     uv run python scripts/ingest_file.py page.html --url https://example.com/article
 
-Runs the same IngestionService the background worker uses:
+Runs the same orchestrator flow the background worker uses:
 scrub -> chunk -> embed -> store.
 """
 
@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import db  # noqa: E402
-from services.ingestion_service import IngestionService  # noqa: E402
+from orchestrator import MemoryOrchestrator  # noqa: E402
 
 
 async def main() -> None:
@@ -33,7 +33,7 @@ async def main() -> None:
     try:
         # the scripts act as their own 'device' so visits have an owner
         device_id = db.create_device("cli", hashlib.sha256(b"dev-device:cli").digest())
-        result = await IngestionService().process(
+        result = await MemoryOrchestrator().process_job(
             {
                 "device_id": device_id,
                 "url": args.url,

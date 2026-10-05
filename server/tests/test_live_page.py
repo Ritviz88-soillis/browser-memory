@@ -1,8 +1,14 @@
-"""Open-page passage selection. Uses the real local embedder (no network)."""
+"""Open-page passage selection. Uses the real local embedder (no network).
+
+LivePageService does not chunk or embed anything itself, so the tests that
+need real passages run those stages first — the same way the orchestrator does.
+"""
 
 from types import SimpleNamespace
 
 from schemas import CurrentPageIn
+from services.chunking_service import ChunkingService
+from services.embedding_service import EmbeddingService
 from services.live_page_service import LivePageService, select_passages, text_to_html
 
 
@@ -23,6 +29,7 @@ LONG_ARTICLE = (
     + section("Sails", "Trimming the mainsail changes how the boat points into the wind.")
     + "</article>"
 )
+URL = "https://guide.example/long"
 
 
 def test_short_page_is_passed_whole():
@@ -53,29 +60,40 @@ def test_plain_text_becomes_paragraphs_and_long_captions_are_wrapped():
     assert text_to_html(captions).count("<p>") >= 5
 
 
-async def test_relevant_passage_of_a_long_page_is_selected():
+def test_page_content_preference_order():
     service = LivePageService()
-    page = CurrentPageIn(url="https://guide.example/long", title="A long guide", html=LONG_ARTICLE, tab_id=3)
+    page = CurrentPageIn(url=URL, html="<p>from html</p>", text="from text")
 
-    everything = await service.passages(page, "anything", char_budget=1_000_000)
-    picked = await service.passages(page, "how do database indexes make queries faster", char_budget=4000)
+    assert "the transcript" in service.article_html(page, transcript="the transcript")
+    assert service.article_html(page) == "<p>from html</p>"
+    assert service.article_html(CurrentPageIn(url=URL, text="from text")) == "<p>from text</p>"
+    assert service.article_html(CurrentPageIn(url=URL), stored_text="kept") == "<p>kept</p>"
+    assert service.article_html(CurrentPageIn(url=URL)) is None
+
+
+async def test_relevant_passage_of_a_long_page_is_selected():
+    chunking, embedding, service = ChunkingService(), EmbeddingService(), LivePageService()
+
+    _, chunks = chunking.chunk(LONG_ARTICLE)
+    vectors = await embedding.embed_passages([c.text for c in chunks])
+    chunks, matrix = service.cache_passages(URL, LONG_ARTICLE, chunks, vectors)
+    query = await embedding.embed_query("how do database indexes make queries faster")
+
+    picked = service.select(chunks, matrix, query, char_budget=4000)
 
     texts = " ".join(c.text for c in picked)
     assert "database index" in texts, "the passage that answers the question is included"
     assert "This guide covers" in picked[0].text, "the opening passage is kept when it fits"
     assert sum(len(c.text) for c in picked) <= 4000
-    assert len(picked) < len(everything), "a long page is narrowed down, not passed whole"
+    assert len(picked) < len(chunks), "a long page is narrowed down, not passed whole"
 
 
-async def test_page_passages_are_cached_between_questions():
+def test_passages_are_cached_per_page_content():
     service = LivePageService()
-    page = CurrentPageIn(url="https://guide.example/long", html=LONG_ARTICLE)
-    await service.passages(page, "tomatoes")
-    await service.passages(page, "sailing knots")
-    assert len(service._cache) == 1
+    assert service.cached_passages(URL, "<p>v1</p>") is None
 
-
-async def test_page_without_readable_content_yields_no_passages(memory):
-    service = LivePageService()
-    page = CurrentPageIn(url="https://nothing.example/empty")
-    assert await service.passages(page, "anything") == []
+    chunks, matrix = service.cache_passages(URL, "<p>v1</p>", [chunk("v1")], [[1.0, 0.0]])
+    hit = service.cached_passages(URL, "<p>v1</p>")
+    assert hit is not None and hit[0] is chunks and hit[1] is matrix
+    assert service.cached_passages(URL, "<p>v2 — the page changed</p>") is None
+    assert service.select([], matrix, [1.0, 0.0]) == []

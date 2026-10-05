@@ -1,31 +1,22 @@
-"""The indexing brain: sequences scrub -> chunk -> embed -> store.
+"""Ingestion: the queue of pages waiting to be indexed, and writing an indexed
+page to memory.
 
-Ingestion is split in two so the extension never waits on embedding:
-``enqueue`` (called by the API) only records a job, and ``process`` (called by
-the background worker) does the actual indexing.
+Scrubbing, chunking and embedding are separate stages; the orchestrator runs
+them and hands the results to ``store``.
 """
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
 import config
 import db
 from schemas import IngestIn, IngestOut
-from services.chunking_service import ChunkingService
-from services.embedding_service import get_embedder
-from utils.scrub import scrub
-from utils.urls import normalize_url
 
 
 class IngestionService:
-    """Turns an extracted page into searchable, embedded chunks."""
+    """Queues extracted pages and stores them once they are processed."""
 
-    def __init__(self) -> None:
-        """Instantiate the stage services once (reused across pages)."""
-
-        self._chunking = ChunkingService()
-
-    async def enqueue(self, request: IngestIn, device_id: str) -> IngestOut:
+    def enqueue(self, request: IngestIn, device_id: str) -> IngestOut:
         """Record a page for background indexing.
 
         Args:
@@ -49,46 +40,73 @@ class IngestionService:
         newly_queued = db.enqueue(request.idempotency_key, payload)
         return IngestOut(queued=True, duplicate=not newly_queued)
 
-    async def process(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Index one queued page.
+    def is_blocked(self, domain: str) -> bool:
+        """Whether the user asked to forget this site (it is never indexed).
 
         Args:
-            payload: The job payload written by ``enqueue``.
+            domain: The page's site.
 
         Returns:
-            The page id and whether new content was indexed, or None when the
-            page was skipped (blocked site, or nothing readable).
+            True if pages from the site must be skipped.
         """
 
-        url, domain = normalize_url(payload["url"])
-        if db.is_blocked(domain):
-            return None
+        return db.is_blocked(domain)
 
-        # 1. Redact secrets BEFORE chunking: the chunker owns the canonical
-        #    text, so redacting afterwards would desynchronize chunk offsets
-        scrubbed = scrub(payload["html"])
+    def record_revisit(
+        self,
+        url: str,
+        extracted_text: str,
+        payload: Dict[str, Any],
+    ) -> Optional[str]:
+        """If the page is already indexed with the same content, record this
+        visit and report that nothing needs re-indexing.
 
-        # 2. Split into heading-aware chunks
-        extracted_text, chunks = self._chunking.chunk(scrubbed.text)
-        if not chunks:
-            return None
+        Args:
+            url: The page's normalized URL.
+            extracted_text: The page's text as just extracted.
+            payload: The job payload (for the device, raw URL and visit).
 
-        visit = self._parse_visit(payload["visit"])
-        device_id = payload.get("device_id")
+        Returns:
+            The page id when the page was unchanged, otherwise None.
+        """
 
-        # 3. Unchanged page seen again: record the visit, skip the embedding
         existing = db.find_page(url)
-        if existing and existing["content_hash"] == db.content_hash(extracted_text):
-            db.record_visit(existing["id"], device_id, payload["url"], visit)
-            return {"page_id": existing["id"], "new_content": False}
+        if not existing or existing["content_hash"] != db.content_hash(extracted_text):
+            return None
 
-        # 4. Embed every chunk of the page in one batch
-        embedder = get_embedder(config.EMBEDDING_MODEL)
-        vectors = await embedder.embed_passages([chunk.text for chunk in chunks])
+        db.record_visit(
+            existing["id"],
+            payload.get("device_id"),
+            payload["url"],
+            self._parse_visit(payload["visit"]),
+        )
+        return existing["id"]
 
-        # 5. Store page, chunks and visit in one transaction
-        page_id = db.save_page(
-            device_id=device_id,
+    def store(
+        self,
+        payload: Dict[str, Any],
+        url: str,
+        domain: str,
+        extracted_text: str,
+        chunks: Sequence[Any],
+        vectors: Sequence[Sequence[float]],
+    ) -> str:
+        """Write a new or changed page, its chunks and the visit in one transaction.
+
+        Args:
+            payload: The job payload (title, language, device, raw URL, visit).
+            url: The page's normalized URL.
+            domain: The page's site.
+            extracted_text: The canonical text the chunks were cut from.
+            chunks: The page's chunks, in page order.
+            vectors: One embedding per chunk.
+
+        Returns:
+            The page id.
+        """
+
+        return db.save_page(
+            device_id=payload.get("device_id"),
             domain=domain,
             url=url,
             raw_url=payload["url"],
@@ -107,9 +125,8 @@ class IngestionService:
                 )
                 for chunk, vector in zip(chunks, vectors)
             ],
-            visit=visit,
+            visit=self._parse_visit(payload["visit"]),
         )
-        return {"page_id": page_id, "new_content": True}
 
     def _parse_visit(self, visit: Dict[str, Any]) -> Dict[str, Any]:
         """Turn the visit's ISO timestamp (JSON payload) back into a datetime."""

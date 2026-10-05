@@ -1,35 +1,31 @@
 """Retrieval stage — hybrid search over the indexed chunks.
 
 Vector and keyword rankings are fused with Reciprocal Rank Fusion in
-``db.hybrid_search``. This service resolves the filters and embeds the query
-around that call.
+``db.hybrid_search``. This service resolves the site filter around that call.
+It does not embed anything: the caller passes the question's vector in.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import config
 import db
-from services.embedding_service import get_embedder
-from services.query_filter_service import ParsedQuery
+from schemas import ParsedQuery
 
 
 class RetrievalService:
-    """Finds the chunks most relevant to a parsed question."""
+    """Finds the chunks in memory most relevant to a parsed question."""
 
-    def __init__(self) -> None:
-        """Remember which embedding model the query side uses."""
-
-        self.embedding_model = config.EMBEDDING_MODEL
-
-    async def retrieve(
+    def search(
         self,
         parsed: ParsedQuery,
+        query_vector: Sequence[float],
         top: int = config.RETRIEVAL_TOP_K,
     ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
         """Run filtered hybrid search for a parsed question.
 
         Args:
             parsed: The topical query and its date/site filters.
+            query_vector: The embedding of the topical query.
             top: How many chunks to return.
 
         Returns:
@@ -44,9 +40,6 @@ class RetrievalService:
             if not domains:
                 return [], f"You haven't read anything on {', '.join(parsed.domains)}."
 
-        embedder = get_embedder(self.embedding_model)
-        query_vector = await embedder.embed_query(parsed.semantic_query)
-
         rows = db.hybrid_search(
             query_vector,
             parsed.semantic_query,
@@ -56,3 +49,21 @@ class RetrievalService:
             limit=top,
         )
         return rows, None
+
+    def without_pages(
+        self,
+        rows: List[Dict[str, Any]],
+        urls: Set[str],
+    ) -> List[Dict[str, Any]]:
+        """Drop chunks belonging to the given pages.
+
+        Args:
+            rows: Chunks returned by ``search``.
+            urls: Normalized URLs of pages already supplied another way
+                (the open tab is passed live, so its stored copy is redundant).
+
+        Returns:
+            The rows from every other page.
+        """
+
+        return [row for row in rows if row["url"] not in urls]

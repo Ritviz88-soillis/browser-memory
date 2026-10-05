@@ -1,37 +1,33 @@
 """Passage selection for pages that are open right now ("live pages").
 
-An open page is split into the same heading-aware chunks used for indexing,
-and the chunks most relevant to the question are returned. Because every
-source is then one specific passage, a citation can take the user to the exact
+An open page is split into passages and the ones most relevant to the
+question are shown to the model, so a citation can take the user to the exact
 place on the page.
+
+This service only decides: which content represents the page, and which of
+its passages to keep. Chunking and embedding are done by their own services;
+the orchestrator passes their results in.
 """
 
 import hashlib
 import html as html_lib
 from collections import OrderedDict
-from typing import List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
 
 import config
-import db
 from schemas import CurrentPageIn
-from services.chunking_service import Chunk, ChunkingService
-from services.embedding_service import get_embedder
-from services.transcript_service import TranscriptService
-from utils import youtube
-from utils.scrub import scrub
-from utils.urls import normalize_url
 
 _LONG_PARAGRAPH_CHARS = 1500
 _WRAPPED_PIECE_CHARS = 1000
 
 
 def select_passages(
-    chunks: Sequence[Chunk],
+    chunks: Sequence[Any],
     similarities: Sequence[float],
     char_budget: int,
-) -> List[Chunk]:
+) -> List[Any]:
     """Choose which passages of a page to show the model.
 
     A short page is passed whole. For a long page the passage most similar to
@@ -108,101 +104,122 @@ def _wrap_words(text: str, width: int) -> List[str]:
 
 
 class LivePageService:
-    """Finds the passages of an open page that matter for a question."""
+    """Decides what an open page contributes to an answer."""
 
-    def __init__(self, transcripts: Optional[TranscriptService] = None) -> None:
-        """Set up the chunker, the transcript source and the passage cache.
+    def __init__(self) -> None:
+        """Start with an empty passage cache."""
 
-        Args:
-            transcripts: Transcript service to share (keeps one cache per app).
-        """
+        # page fingerprint -> (chunks, unit-length embedding matrix), so
+        # follow-up questions about the same page skip chunking and embedding
+        self._cache: "OrderedDict[str, Tuple[List[Any], np.ndarray]]" = OrderedDict()
 
-        self._chunking = ChunkingService()
-        self._transcripts = transcripts or TranscriptService()
-        # page fingerprint -> (chunks, embedding matrix); follow-up questions
-        # about the same page skip chunking and embedding
-        self._cache: "OrderedDict[str, Tuple[List[Chunk], np.ndarray]]" = OrderedDict()
-
-    async def passages(
+    def article_html(
         self,
         page: CurrentPageIn,
-        question: str,
-        char_budget: int = config.LIVE_PAGE_CHAR_BUDGET,
-    ) -> List[Chunk]:
-        """Return the passages of an open page most relevant to a question.
-
-        Args:
-            page: The open tab as sent by the extension.
-            question: The topical part of the user's question.
-            char_budget: Maximum total characters of passage text to return.
-
-        Returns:
-            Selected chunks in page order; empty if the page has no readable text.
-        """
-
-        # 1. Get the page's readable content as article HTML
-        article_html = await self._article_html(page)
-        if not article_html:
-            return []
-
-        # 2. Split into passages and embed them (cached per page content)
-        chunks, matrix = await self._chunks_and_vectors(page.url, article_html)
-        if not chunks:
-            return []
-
-        # 3. Score every passage against the question and pick within budget
-        embedder = get_embedder(config.EMBEDDING_MODEL)
-        query = np.asarray(await embedder.embed_query(question), dtype=np.float32)
-        similarities = matrix @ (query / np.linalg.norm(query))
-
-        return select_passages(chunks, similarities.tolist(), char_budget)
-
-    async def _article_html(self, page: CurrentPageIn) -> Optional[str]:
-        """Find the best available content for an open page.
+        transcript: Optional[str] = None,
+        stored_text: Optional[str] = None,
+    ) -> Optional[str]:
+        """Pick the best available content for an open page, as article HTML.
 
         Order: a video's transcript, the article HTML the extension extracted,
         the plain text it sent, then text already stored in memory.
+
+        Args:
+            page: The open tab as sent by the extension.
+            transcript: The video transcript, if the page is a video.
+            stored_text: The page's text from memory, if it was indexed before.
+
+        Returns:
+            HTML ready for the chunker, or None if the page has nothing readable.
         """
 
-        video_id = youtube.video_id(page.url)
-        if video_id:
-            transcript = await self._transcripts.fetch_transcript(video_id)
-            if transcript:
-                return text_to_html(transcript)
-
+        if transcript:
+            return text_to_html(transcript)
         if page.html:
             return page.html
         if page.text:
             return text_to_html(page.text)
+        if stored_text:
+            return text_to_html(stored_text)
+        return None
 
-        # extraction failed (orphaned content script, PDF viewer…) but the
-        # page may already be in memory
-        normalized_url, _ = normalize_url(page.url)
-        stored_text = db.page_text_for_url(normalized_url)
-        return text_to_html(stored_text) if stored_text else None
-
-    async def _chunks_and_vectors(
+    def cached_passages(
         self,
         url: str,
         article_html: str,
-    ) -> Tuple[List[Chunk], np.ndarray]:
-        """Chunk and embed a page, reusing the result while its content is unchanged."""
+    ) -> Optional[Tuple[List[Any], np.ndarray]]:
+        """Return a page's chunks and embeddings if its content was seen before.
 
-        key = hashlib.sha256((url + "\n" + article_html).encode()).hexdigest()
-        if key in self._cache:
-            self._cache.move_to_end(key)
-            return self._cache[key]
+        Args:
+            url: The page URL.
+            article_html: The page content chosen by ``article_html``.
 
-        _, chunks = self._chunking.chunk(scrub(article_html).text)
+        Returns:
+            The cached (chunks, embedding matrix), or None.
+        """
+
+        key = self._fingerprint(url, article_html)
+        if key not in self._cache:
+            return None
+        self._cache.move_to_end(key)
+        return self._cache[key]
+
+    def cache_passages(
+        self,
+        url: str,
+        article_html: str,
+        chunks: List[Any],
+        vectors: Sequence[Sequence[float]],
+    ) -> Tuple[List[Any], np.ndarray]:
+        """Remember a page's chunks and embeddings for follow-up questions.
+
+        Args:
+            url: The page URL.
+            article_html: The page content the chunks were made from.
+            chunks: The page's chunks, in page order.
+            vectors: One embedding per chunk.
+
+        Returns:
+            The (chunks, unit-length embedding matrix) that was stored.
+        """
+
         if chunks:
-            embedder = get_embedder(config.EMBEDDING_MODEL)
-            vectors = await embedder.embed_passages([chunk.text for chunk in chunks])
             matrix = np.asarray(vectors, dtype=np.float32)
             matrix = matrix / np.linalg.norm(matrix, axis=1, keepdims=True)
         else:
             matrix = np.zeros((0, 0), dtype=np.float32)
 
-        self._cache[key] = (chunks, matrix)
+        self._cache[self._fingerprint(url, article_html)] = (chunks, matrix)
         if len(self._cache) > config.LIVE_PAGE_CACHE_MAX:
             self._cache.popitem(last=False)
         return chunks, matrix
+
+    def select(
+        self,
+        chunks: List[Any],
+        matrix: np.ndarray,
+        query_vector: Sequence[float],
+        char_budget: int = config.LIVE_PAGE_CHAR_BUDGET,
+    ) -> List[Any]:
+        """Keep the passages of a page most relevant to the question.
+
+        Args:
+            chunks: The page's chunks, in page order.
+            matrix: Their unit-length embeddings (from ``cache_passages``).
+            query_vector: The embedding of the question.
+            char_budget: Maximum total characters of passage text to keep.
+
+        Returns:
+            The selected chunks, in page order.
+        """
+
+        if not chunks:
+            return []
+        query = np.asarray(query_vector, dtype=np.float32)
+        similarities = matrix @ (query / np.linalg.norm(query))
+        return select_passages(chunks, similarities.tolist(), char_budget)
+
+    def _fingerprint(self, url: str, article_html: str) -> str:
+        """Identify one version of one page's content."""
+
+        return hashlib.sha256((url + "\n" + article_html).encode()).hexdigest()

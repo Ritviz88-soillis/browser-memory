@@ -14,23 +14,15 @@ from datetime import datetime, timezone
 from typing import Any, List, Optional
 
 from langchain_core.output_parsers import StrOutputParser
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 import config
 from prompts.query_filter_prompt import QUERY_FILTER_PROMPT
+from schemas import ParsedQuery
 from utils.llm import build_chat_model
 
 _CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
 _EARLIEST_PLAUSIBLE_YEAR = 2000
-
-
-class ParsedQuery(BaseModel):
-    """A question split into its topical part and its retrieval filters."""
-
-    semantic_query: str
-    since: Optional[datetime] = None
-    until: Optional[datetime] = None
-    domains: Optional[List[str]] = None
 
 
 def parse_response(raw: str, question: str, now: datetime) -> ParsedQuery:
