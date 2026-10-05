@@ -27,7 +27,11 @@ EMBEDDING_SLICE = 4
 # Chat model. LLM_PROVIDER is "groq", "huggingface" or "gemini"; left empty,
 # the first provider that has a key in .env is used, in that order.
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "").strip().lower()
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+# Groq's lineup changes; scripts/ask.py fails with "model does not exist" when
+# this default has been retired. Tested 2026-10-05: openai/gpt-oss-120b and
+# qwen/qwen3.8-27b both resolve dates correctly and decline to add facts the
+# sources do not state.
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 HF_MODEL = os.environ.get("HF_MODEL", "meta-llama/Llama-3.3-70B-Instruct")
 HF_MAX_NEW_TOKENS = 1024
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")

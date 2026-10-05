@@ -2,7 +2,7 @@
 
 Three providers, all with free tiers that need no credit card:
 
-    groq         Llama 3.3 70B on Groq            (GROQ_API_KEY)
+    groq         an open model served by Groq     (GROQ_API_KEY)
     huggingface  an open model on Hugging Face    (HUGGINGFACEHUB_API_TOKEN)
     gemini       Google Gemini                    (GOOGLE_API_KEY)
 
@@ -76,6 +76,11 @@ def describe_llm_error(error: Exception) -> str:
     """
 
     text = str(error).lower()
+    if "model_not_found" in text or "does not exist" in text:
+        return (
+            f"The language model ({chat_model_name()}) is no longer offered by its provider. "
+            "Set a current model name in server/.env (GROQ_MODEL, HF_MODEL or GEMINI_MODEL)."
+        )
     if any(sign in text for sign in ("429", "402", "quota", "rate limit", "rate_limit", "credits")):
         return (
             f"The language model ({chat_model_name()}) has hit its free usage limit. "
