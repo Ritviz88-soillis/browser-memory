@@ -61,6 +61,8 @@ export interface SourceOut {
 export interface AskOut {
   answer: string;
   abstained: boolean;
+  // how the cited statements fared when checked against the pages they cite
+  trust?: { verified: number; unverified: number } | null;
   sources: SourceOut[];
   filters: {
     semantic_query: string;

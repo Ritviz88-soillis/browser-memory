@@ -135,6 +135,27 @@ class EvidenceService:
             for line in answer.split("\n")
         )
 
+    def tally(self, checked_answer: str) -> Dict[str, int]:
+        """Count how an answer's cited statements fared in the check.
+
+        Args:
+            checked_answer: The answer after ``mark_unsupported``.
+
+        Returns:
+            ``verified``: statements that kept their citation (they matched
+            the page they cite). ``unverified``: statements whose citation
+            was withdrawn. Statements reporting what a page lacks, and
+            sentences that cite nothing, are counted in neither.
+        """
+
+        verified = 0
+        for line in checked_answer.splitlines():
+            for match in _ANSWER_SENTENCE_RE.finditer(line.strip()):
+                sentence = match.group(0)
+                if _CITATION_RE.search(sentence) and not _REPORTS_ABSENCE_RE.search(sentence):
+                    verified += 1
+        return {"verified": verified, "unverified": checked_answer.count(UNVERIFIED_MARK)}
+
     def spans(self, passage: str) -> List[str]:
         """Split a passage into candidate spans to highlight.
 

@@ -70,11 +70,20 @@ class SourceOut(BaseModel):
     tab_id: Optional[int] = None
 
 
+class TrustOut(BaseModel):
+    """How the answer's cited statements fared when checked against the pages
+    they cite (a word-overlap check, not a proof)."""
+
+    verified: int    # statements that matched the page they cite
+    unverified: int  # statements whose citation was withdrawn
+
+
 class AskOut(BaseModel):
     """The grounded answer with its cited sources."""
 
     answer: str
     abstained: bool
+    trust: Optional[TrustOut] = None  # absent when no answer was generated
     sources: List[SourceOut]
     filters: FilterOut
     latency_ms: int

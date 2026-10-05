@@ -5,6 +5,7 @@ from .ask_schemas import (
     FilterOut,
     HistoryTurn,
     SourceOut,
+    TrustOut,
 )
 from .device_schemas import PairOut
 from .ingest_schemas import IngestIn, IngestOut, IngestPdfIn, VisitIn
@@ -29,5 +30,6 @@ __all__ = [
     "PageOut",
     "SourceOut",
     "StatusOut",
+    "TrustOut",
     "VisitIn",
 ]

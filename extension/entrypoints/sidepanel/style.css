@@ -106,6 +106,10 @@ nav button.active { background: var(--panel); color: var(--text); font-weight: 6
   color: #facc15; border: 1px solid color-mix(in srgb, #facc15 55%, transparent);
 }
 
+.trust { margin-top: 10px; font-size: 11.5px; cursor: help; }
+.trust.ok { color: #4ade80; }
+.trust.warn { color: #facc15; }
+
 /* sources, one block per page with the passages cited from it */
 .sources {
   margin-top: 10px; padding-top: 8px; font-size: 12.5px;

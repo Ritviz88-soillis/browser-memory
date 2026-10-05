@@ -39,6 +39,7 @@ from schemas import (
     RelatedOut,
     SourceOut,
     StatusOut,
+    TrustOut,
 )
 from services.chunking_service import ChunkingService
 from services.device_service import DeviceService
@@ -354,6 +355,7 @@ class MemoryOrchestrator:
         # 5. Generate the answer, or abstain when there is nothing to ground it
         cited: List[Source] = []
         highlights: Dict[int, List[str]] = {}
+        trust: Optional[TrustOut] = None
         if not sources:
             if comparing_tabs:
                 answer = config.UNREADABLE_TABS_TEXT
@@ -394,6 +396,7 @@ class MemoryOrchestrator:
                     answer, {source.n: source.text for source in cited}
                 )
                 answer, cited = validate_citations(answer, sources)
+                trust = TrustOut(**self._evidence.tally(answer))
                 abstained = False
                 # 8. Narrow each cited passage to the sentences that support
                 #    the answer; these are what the page highlights
@@ -417,6 +420,7 @@ class MemoryOrchestrator:
         return AskOut(
             answer=answer,
             abstained=abstained,
+            trust=trust,
             sources=[
                 self._source_out(source, highlights.get(source.n, [])) for source in cited
             ],

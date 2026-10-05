@@ -141,6 +141,23 @@ def test_a_sentence_reporting_what_a_page_lacks_keeps_its_citation():
     assert evidence.mark_unsupported(answer, {4: POSTGRES_PASSAGE}) == answer
 
 
+def test_tally_counts_verified_and_withdrawn_statements():
+    evidence = EvidenceService()
+    answer = (
+        "SQLite has a serverless design and stores the database in a single file [2]. "
+        "PostgreSQL is a client-server system that typically requires a server to run [4]. "
+        "The PostgreSQL page announces that the 4th beta release of PostgreSQL 19 is available [4]. "
+        "The PostgreSQL page does not say whether it needs a server [4]. "
+        "This closing remark cites nothing."
+    )
+    checked = evidence.mark_unsupported(answer, {2: SQLITE_PASSAGE, 4: POSTGRES_PASSAGE})
+
+    # two statements matched their page, one was withdrawn; the sentence about
+    # what the page lacks and the uncited remark are counted in neither
+    assert evidence.tally(checked) == {"verified": 2, "unverified": 1}
+    assert evidence.tally("Nothing here is cited.") == {"verified": 0, "unverified": 0}
+
+
 def test_checking_keeps_lists_and_line_breaks_intact():
     evidence = EvidenceService()
     answer = "Two points:\n\n- SQLite stores the entire database as a single file [1]\n- Bananas are an excellent source of potassium [1]"

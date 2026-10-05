@@ -89,6 +89,7 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
               citable={new Set(sources.keys())}
               onCite={(n) => void show(sources.get(n)!)}
             />
+            {r?.trust && <TrustLine trust={r.trust} />}
             {pages.length > 0 && (
               <div className="sources">
                 {pages.map((page) => (
@@ -122,6 +123,25 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// One line under each answer: how many of its cited statements were found on
+// the page they cite. The check compares words, so it is a strong signal,
+// not a proof; the tooltip says so.
+function TrustLine({ trust }: { trust: { verified: number; unverified: number } }) {
+  const checked = trust.verified + trust.unverified;
+  if (checked === 0) return null;
+  const allFound = trust.unverified === 0;
+  return (
+    <div
+      className={`trust ${allFound ? "ok" : "warn"}`}
+      title="Each cited statement is compared with the passage it cites. A statement counts as found when most of its key words are in that passage. This catches statements about things the page never mentions; it cannot prove a statement is true."
+    >
+      {allFound ? "✓" : "!"} {trust.verified} of {checked} cited{" "}
+      {checked === 1 ? "statement" : "statements"} found on the page
+      {allFound ? "" : ` · ${trust.unverified} not found`}
     </div>
   );
 }

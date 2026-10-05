@@ -181,6 +181,8 @@ async def test_full_lifecycle(client):
         "The Glimmer tower in Zarnville is 412 metres tall and opened in 1987."
     ]
     assert all(h in live[0]["passage"] for h in live[0]["highlights"])
+    # ...and reports how its cited statements fared against the page
+    assert r.json()["trust"]["verified"] >= 1 and r.json()["trust"]["unverified"] == 0
 
     # comparing ticked tabs: the answer draws on each tab and on nothing else,
     # even though memory holds a page (the zebra notes) that could match
