@@ -47,6 +47,21 @@ async def test_full_lifecycle(client):
     r = await client.get("/health")
     assert r.status_code == 200 and r.json()["ok"] is True
 
+    # pairing: a token is issued only to a browser extension, never to a web
+    # page or a bare request, and only to the first extension that asks
+    assert (await client.post("/pair")).status_code == 403
+    r = await client.post("/pair", headers={"Origin": "https://evil.example"})
+    assert r.status_code == 403
+    r = await client.post("/pair", headers={"Origin": "chrome-extension://myextensionid"})
+    assert r.status_code == 200
+    paired = {"Authorization": f"Bearer {r.json()['token']}"}
+    assert (await client.get("/status", headers=paired)).status_code == 200
+    r = await client.post("/pair", headers={"Origin": "chrome-extension://myextensionid"})
+    assert r.status_code == 200, "the same extension may pair again (e.g. after a reinstall)"
+    r = await client.post("/pair", headers={"Origin": "chrome-extension://anotherextension"})
+    assert r.status_code == 403, "a second, different extension is refused"
+
+    # a token made by hand with scripts/new_device.py keeps working too
     token = secrets.token_urlsafe(24)
     db.create_device("pytest", hashlib.sha256(token.encode()).digest())
     auth = {"Authorization": f"Bearer {token}"}

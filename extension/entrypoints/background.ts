@@ -95,7 +95,8 @@ async function noteCandidate(
   source: Candidate["source"],
 ): Promise<void> {
   const settings = await getSettings();
-  if (settings.paused || !settings.token) return;
+  // no token check: the first upload pairs with the server automatically
+  if (settings.paused) return;
 
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   if (!tab || tab.incognito) return; // incognito: never, no exceptions

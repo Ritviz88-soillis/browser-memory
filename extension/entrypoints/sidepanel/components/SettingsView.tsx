@@ -16,18 +16,19 @@ export default function SettingsView() {
     const cleaned = { ...s!, token: s!.token.trim(), serverUrl: s!.serverUrl.trim() };
     setS(cleaned);
     await saveSettings(cleaned);
-    // authenticated check: /health passes without a token and would
-    // green-light a bad one
+    // an authenticated call: it pairs with the server automatically if
+    // there is no token yet, or the saved one is no longer accepted
     try {
       await api.pages();
-      setStatus("saved — server reachable, token valid ✓");
+      setStatus("saved — connected to the server ✓");
     } catch (e) {
       setStatus(
-        String(e).includes("401")
-          ? "saved, but the token is WRONG — re-copy it exactly"
-          : "saved, but server is not reachable",
+        String(e).includes("403")
+          ? "saved, but this server is paired with a different extension"
+          : "saved, but the server is not reachable — is it running?",
       );
     }
+    setS(await getSettings()); // show the token pairing just stored
   }
 
   return (
@@ -40,12 +41,12 @@ export default function SettingsView() {
         />
       </label>
       <label>
-        Device token
+        Access token (set automatically)
         <input
           type="password"
           value={s.token}
           onChange={(e) => setS({ ...s, token: e.target.value })}
-          placeholder="from scripts/new_device.py"
+          placeholder="pairs with the server on first use"
         />
       </label>
       <label>

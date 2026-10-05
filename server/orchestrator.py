@@ -28,12 +28,14 @@ from schemas import (
     IngestIn,
     IngestOut,
     PageOut,
+    PairOut,
     ParsedQuery,
     RelatedOut,
     SourceOut,
     StatusOut,
 )
 from services.chunking_service import ChunkingService
+from services.device_service import DeviceService
 from services.embedding_service import EmbeddingService
 from services.generation_service import GenerationService
 from services.ingestion_service import IngestionService
@@ -71,6 +73,7 @@ class MemoryOrchestrator:
         self._query_log = QueryLogService()
         self._recall = RecallService()
         self._pages = PageService()
+        self._devices = DeviceService()
 
     # --- indexing ----------------------------------------------------------
 
@@ -318,6 +321,23 @@ class MemoryOrchestrator:
 
         # 3. Nearest pages in memory, excluding the page itself
         return self._recall.find(vectors[0], normalized_url)
+
+    # --- pairing -----------------------------------------------------------
+
+    async def pair(self, origin: Optional[str]) -> PairOut:
+        """Give the browser extension its access token.
+
+        Args:
+            origin: The request's Origin header, which identifies the caller.
+
+        Returns:
+            A new token for the extension to send with every later request.
+
+        Raises:
+            PermissionError: If the caller is not the trusted extension.
+        """
+
+        return PairOut(token=self._devices.pair(origin))
 
     # --- pages panel -------------------------------------------------------
 

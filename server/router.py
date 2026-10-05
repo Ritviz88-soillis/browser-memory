@@ -3,9 +3,9 @@
 Thin by convention: each endpoint hands its request to the orchestrator.
 """
 
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 
 from orchestrator import MemoryOrchestrator
 from schemas import (
@@ -16,6 +16,7 @@ from schemas import (
     IngestIn,
     IngestOut,
     PageOut,
+    PairOut,
     RelatedOut,
     StatusOut,
 )
@@ -49,6 +50,16 @@ async def health() -> dict:
     """Report whether the server and its database are reachable."""
 
     return await _orchestrator.health_check()
+
+
+@router.post("/pair")
+async def pair(origin: Annotated[Optional[str], Header()] = None) -> PairOut:
+    """Issue an access token to the browser extension (no token needed to call)."""
+
+    try:
+        return await _orchestrator.pair(origin)
+    except PermissionError as error:
+        raise HTTPException(403, str(error)) from error
 
 
 @router.post("/ingest", status_code=202)

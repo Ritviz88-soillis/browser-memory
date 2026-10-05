@@ -6,12 +6,14 @@ from .ask_schemas import (
     HistoryTurn,
     SourceOut,
 )
+from .device_schemas import PairOut
 from .ingest_schemas import IngestIn, IngestOut, VisitIn
 from .page_schemas import ForgetOut, PageOut, StatusOut
 from .query_schemas import ParsedQuery
 from .recall_schemas import RelatedOut, RelatedPageOut
 
 __all__ = [
+    "PairOut",
     "ParsedQuery",
     "RelatedOut",
     "RelatedPageOut",

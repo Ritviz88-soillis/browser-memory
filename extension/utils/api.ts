@@ -1,7 +1,7 @@
 // Server client. Interfaces mirror server/schemas/; regenerate with
 // `npm run gen:api` against a running server when the contract changes.
 
-import { getSettings } from "./settings";
+import { getSettings, saveSettings } from "./settings";
 
 export interface VisitIn {
   started_at: string;
@@ -59,16 +59,45 @@ export interface PageOut {
   indexed_at: string;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const { serverUrl, token } = await getSettings();
-  const resp = await fetch(serverUrl.replace(/\/$/, "") + path, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...init?.headers,
-    },
+// Pairing: the extension asks the server for its own access token, so the
+// user never copies one. The server only answers a browser extension (it
+// checks the request's Origin, which a web page cannot forge).
+let pairing: Promise<string> | null = null;
+
+async function pair(serverUrl: string): Promise<string> {
+  // single-flight: several requests starting together share one pairing
+  pairing ??= (async () => {
+    const resp = await fetch(serverUrl.replace(/\/$/, "") + "/pair", { method: "POST" });
+    if (!resp.ok) throw new Error(`POST /pair -> ${resp.status}`);
+    const { token } = (await resp.json()) as { token: string };
+    await saveSettings({ token });
+    return token;
+  })().finally(() => {
+    pairing = null;
   });
+  return pairing;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const { serverUrl, token: saved } = await getSettings();
+  let token = saved || (await pair(serverUrl));
+
+  const send = () =>
+    fetch(serverUrl.replace(/\/$/, "") + path, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...init?.headers,
+      },
+    });
+
+  let resp = await send();
+  if (resp.status === 401) {
+    // the saved token belongs to an old or reset server: pair again, once
+    token = await pair(serverUrl);
+    resp = await send();
+  }
   if (!resp.ok) {
     throw new Error(`${init?.method ?? "GET"} ${path} -> ${resp.status}`);
   }

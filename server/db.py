@@ -218,6 +218,12 @@ def create_device(label: str, token_hash: bytes) -> str:
     return row["id"]
 
 
+def device_labels() -> List[str]:
+    """Labels of every paired device."""
+
+    return [row["label"] for row in _db().execute("SELECT label FROM devices").fetchall()]
+
+
 def get_device_id(token_hash: bytes) -> Optional[str]:
     """Look up the device paired with a token hash; None if unknown."""
 
