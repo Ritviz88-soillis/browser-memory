@@ -1,7 +1,16 @@
 // Side-panel side of passage highlighting: find (or open) the tab that shows
 // a cited page, then ask its content script to highlight the passages.
 
+import type { SourceOut } from "./api";
 import { sendToContentScript } from "./extract";
+import type { PassageSpec } from "./highlight";
+
+// What to mark on the page for one cited source: its passage, and the
+// sentences in it that support the answer. Answers saved before passages
+// existed only carry the short snippet.
+export function passageOf(source: SourceOut): PassageSpec {
+  return { text: source.passage ?? source.snippet, key: source.highlights ?? [] };
+}
 
 const TRACKING_PREFIXES = ["utm_", "fbclid", "gclid", "ref_", "mc_"];
 const LOAD_TIMEOUT_MS = 15_000;
@@ -59,7 +68,7 @@ function waitUntilLoaded(tabId: number): Promise<void> {
 // scripted (chrome:// pages, the Web Store, PDFs).
 export async function showPassages(
   url: string,
-  passages: string[],
+  passages: PassageSpec[],
   { tabId = null as number | null, bringToFront = true } = {},
 ): Promise<HighlightResult | null> {
   let tab = await findTab(url, tabId);

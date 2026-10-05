@@ -69,6 +69,31 @@ COMPARE_TABS_CHAR_BUDGET = 14_000
 UNREADABLE_TABS_TEXT = "I couldn't read any text from the selected tabs."
 SOURCE_SNIPPET_CHARS = 300
 
+# Evidence: the sentences of a cited passage that support the answer, which
+# are what gets highlighted most strongly on the page.
+EVIDENCE_MIN_SPAN_CHARS = 20
+EVIDENCE_MAX_SPANS = 3
+EVIDENCE_MIN_SIMILARITY = 0.62       # a sentence this close to a claim supports it
+EVIDENCE_FALLBACK_SIMILARITY = 0.50  # if none is, keep the best one above this
+
+# Claim check: a cited sentence must share at least this share of its
+# meaningful words with the passage it cites, or its citation is withdrawn.
+# Measured on real answers: supported sentences scored 0.82-1.00, sentences
+# the model added from its own knowledge 0.14-0.50.
+SUPPORT_MIN_WORD_OVERLAP = 0.6
+SUPPORT_MIN_WORDS = 3  # fewer meaningful words than this is too little to judge
+
+# When the user is on a page, memory is extra context, not the subject. A
+# stored passage is added only if it is at least this similar to the question,
+# so unrelated reading does not crowd the prompt.
+MEMORY_MIN_SIMILARITY_BESIDE_OPEN_PAGE = 0.55
+
+# What the user sees when the sources hold no answer
+PAGE_NOT_COVERED_TEXT = (
+    "The page you're on doesn't cover this, and nothing else you've read does either."
+)
+TABS_NOT_COVERED_TEXT = "None of the selected tabs cover this."
+
 # YouTube transcripts: an hour of speech is ~10k chars
 TRANSCRIPT_TEXT_CAP = 24_000
 TRANSCRIPT_LANGUAGES = ["en", "en-US", "en-IN", "hi"]

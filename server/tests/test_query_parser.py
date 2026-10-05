@@ -15,13 +15,40 @@ Q = "what did I read about transformers last Tuesday?"
 
 def test_prompt_contains_anchor_date_and_question():
     messages = QUERY_FILTER_PROMPT.format_messages(
-        weekday="Wednesday", today="2026-07-29", timezone_offset="+0000", question=Q
+        weekday="Wednesday", today="2026-07-29", timezone_offset="+0000",
+        conversation="(none)", question=Q,
     )
     p = messages[-1].content
     assert "Wednesday" in p and "2026-07-29" in p
     assert p.rstrip().endswith(Q)
     # the JSON examples must survive templating as literal braces
     assert '{"semantic_query": "transformers"' in p
+
+
+async def test_follow_up_question_is_sent_with_the_conversation():
+    # "explain it more simply" can only be searched if the model is shown
+    # what "it" refers to
+    from schemas import HistoryTurn
+
+    seen = {}
+
+    def capture(prompt):
+        seen["text"] = prompt.to_messages()[-1].content
+        return '{"semantic_query": "accessing a variable inside an object"}'
+
+    service = QueryFilterService(model=RunnableLambda(capture))
+    history = [
+        HistoryTurn(role="user", content="How do I access a variable inside an object?"),
+        HistoryTurn(role="assistant", content="Use myobjectx.variable {braces are harmless} [1]."),
+    ]
+    q = await service.parse("can you explain it in a more understandable way", history, now=NOW)
+
+    assert "User: How do I access a variable inside an object?" in seen["text"]
+    assert "Assistant: Use myobjectx.variable {braces are harmless}" in seen["text"]
+    assert q.semantic_query == "accessing a variable inside an object"
+
+    await service.parse("a first question", now=NOW)
+    assert "(none)" in seen["text"]
 
 
 def test_valid_response_parsed():

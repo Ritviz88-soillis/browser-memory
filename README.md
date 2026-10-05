@@ -30,6 +30,8 @@ browser-memory/
 │   │   ├── retrieval_service.py     # hybrid (vector + keyword) search of memory
 │   │   ├── live_page_service.py     # which passages of an open tab to cite
 │   │   ├── generation_service.py    # prompt | chat model | parser
+│   │   ├── evidence_service.py      # checks each cited sentence against its
+│   │   │                            #   source; picks the sentences to highlight
 │   │   ├── transcript_service.py    # YouTube transcripts
 │   │   ├── recall_service.py        # proactive recall: related pages, no LLM
 │   │   ├── query_log_service.py     # record of every question and answer

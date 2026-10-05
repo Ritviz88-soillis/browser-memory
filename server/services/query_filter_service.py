@@ -11,18 +11,20 @@ must never be the reason a question goes unanswered.
 import json
 import re
 from datetime import datetime, timezone
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Sequence
 
 from langchain_core.output_parsers import StrOutputParser
 from pydantic import ValidationError
 
 import config
 from prompts.query_filter_prompt import QUERY_FILTER_PROMPT
-from schemas import ParsedQuery
+from schemas import HistoryTurn, ParsedQuery
 from utils.llm import build_chat_model
 
 _CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
 _EARLIEST_PLAUSIBLE_YEAR = 2000
+_CONVERSATION_TURNS = 4
+_CONVERSATION_TURN_CHARS = 300
 
 
 def parse_response(raw: str, question: str, now: datetime) -> ParsedQuery:
@@ -111,11 +113,18 @@ class QueryFilterService:
         model = model or build_chat_model(config.QUERY_FILTER_TEMPERATURE)
         self._chain = QUERY_FILTER_PROMPT | model | StrOutputParser()
 
-    async def parse(self, question: str, now: Optional[datetime] = None) -> ParsedQuery:
+    async def parse(
+        self,
+        question: str,
+        history: Optional[Sequence[HistoryTurn]] = None,
+        now: Optional[datetime] = None,
+    ) -> ParsedQuery:
         """Extract retrieval filters from a question.
 
         Args:
             question: The user's question.
+            history: Earlier turns, so a follow-up such as "explain it more
+                simply" is searched by the topic it refers to.
             now: The current time; defaults to the local time.
 
         Returns:
@@ -131,6 +140,7 @@ class QueryFilterService:
                     "weekday": now.strftime("%A"),
                     "today": now.strftime("%Y-%m-%d"),
                     "timezone_offset": now.strftime("%z") or "+0000",
+                    "conversation": self._conversation_text(history),
                     "question": question,
                 }
             )
@@ -138,3 +148,15 @@ class QueryFilterService:
             return ParsedQuery(semantic_query=question)
 
         return parse_response(raw, question, now)
+
+    def _conversation_text(self, history: Optional[Sequence[HistoryTurn]]) -> str:
+        """Render the last few turns compactly for the prompt."""
+
+        recent = list(history or [])[-_CONVERSATION_TURNS:]
+        if not recent:
+            return "(none)"
+        return "\n".join(
+            f"{'User' if turn.role == 'user' else 'Assistant'}: "
+            f"{turn.content[:_CONVERSATION_TURN_CHARS]}"
+            for turn in recent
+        )

@@ -8,18 +8,22 @@ indexed or a question is asked, read the matching method here top to bottom.
 
     ingest       queue a page the extension sent
     process_job  index a queued page:   scrub -> chunk -> embed -> store
-    ask          answer a question:     filter -> embed -> open-page passages
-                                        -> memory search -> generate -> cite
+    ask          answer a question:     understand question + prepare open pages
+                                        -> embed -> select passages -> memory
+                                        search -> generate -> validate citations
+                                        -> pick supporting sentences
     related      proactive recall:      describe page -> embed -> find similar
 """
 
+import asyncio
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Tuple
 
 import config
 import worker
+from prompts.answer_prompt import NOT_FOUND
 from schemas import (
     AskIn,
     AskOut,
@@ -37,6 +41,7 @@ from schemas import (
 from services.chunking_service import ChunkingService
 from services.device_service import DeviceService
 from services.embedding_service import EmbeddingService
+from services.evidence_service import EvidenceService
 from services.generation_service import GenerationService
 from services.ingestion_service import IngestionService
 from services.live_page_service import LivePageService
@@ -70,6 +75,7 @@ class MemoryOrchestrator:
         self._retrieval = RetrievalService()
         self._live_pages = LivePageService()
         self._generation = GenerationService()
+        self._evidence = EvidenceService()
         self._query_log = QueryLogService()
         self._recall = RecallService()
         self._pages = PageService()
@@ -157,19 +163,8 @@ class MemoryOrchestrator:
         started = time.monotonic()
         comparing_tabs = bool(request.tabs)
 
-        # 1. Extract date/site filters from the question (not needed when the
-        #    user has ticked the tabs to answer from)
-        if request.no_filters or comparing_tabs:
-            parsed = ParsedQuery(semantic_query=request.question)
-        else:
-            parsed = await self._query_filter.parse(request.question)
-
-        # 2. Embed the question once; both passage selection and memory
-        #    search compare against this vector
-        query_vector = await self._embedding.embed_query(parsed.semantic_query)
-
-        # 3. Pick the relevant passages of the open pages: the ticked tabs,
-        #    or else the page open right now. These are numbered first.
+        # The open pages to answer from: the ticked tabs, or else the page
+        # open right now. Ticked tabs share one budget equally.
         if comparing_tabs:
             live_pages = request.tabs
             budget_per_page = config.COMPARE_TABS_CHAR_BUDGET // len(live_pages)
@@ -177,13 +172,31 @@ class MemoryOrchestrator:
             live_pages = [request.current_page] if request.current_page else []
             budget_per_page = config.LIVE_PAGE_CHAR_BUDGET
 
+        # 1. Two things that do not depend on each other run at the same time:
+        #    understanding the question (a call to the language model) and
+        #    chunking + embedding the open pages (local work).
+        parsed, *prepared_pages = await asyncio.gather(
+            self._understand_question(request, comparing_tabs),
+            *(self._prepare_open_page(page) for page in live_pages),
+        )
+
+        # 2. Embed the question once; both passage selection and memory
+        #    search compare against this vector
+        query_vector = await self._embedding.embed_query(parsed.semantic_query)
+
+        # 3. Keep the passages of each open page closest to the question.
+        #    These sources are numbered first.
         now = datetime.now(timezone.utc)
         sources: List[Source] = []
-        for page in live_pages:
-            passages = await self._open_page_passages(page, query_vector, budget_per_page)
+        for page, prepared in zip(live_pages, prepared_pages):
+            if prepared is None:
+                continue
+            chunks, matrix = prepared
+            passages = self._live_pages.select(chunks, matrix, query_vector, budget_per_page)
             sources += live_page_sources(
                 page.url, page.title, page.tab_id, passages, now, start=len(sources) + 1
             )
+        has_open_page = bool(sources)
 
         # 4. Search memory — unless tabs were ticked, which means "answer from
         #    these". The open page's own copy in memory is dropped: its live
@@ -194,10 +207,17 @@ class MemoryOrchestrator:
             rows, abstain_reason = self._retrieval.search(parsed, query_vector, request.top)
             open_urls = {normalize_url(page.url)[0] for page in live_pages}
             rows = self._retrieval.without_pages(rows, open_urls)
+            if has_open_page:
+                # the page is the subject; memory is added only when it is
+                # clearly about the same thing
+                rows = self._retrieval.similar_enough(
+                    rows, config.MEMORY_MIN_SIMILARITY_BESIDE_OPEN_PAGE
+                )
             sources += rows_to_sources(rows, start=len(sources) + 1)
 
         # 5. Generate the answer, or abstain when there is nothing to ground it
         cited: List[Source] = []
+        highlights: Dict[int, List[str]] = {}
         if not sources:
             if comparing_tabs:
                 answer = config.UNREADABLE_TABS_TEXT
@@ -216,13 +236,36 @@ class MemoryOrchestrator:
                 # say so plainly instead of failing with a raw error
                 logger.warning("generation failed: %s", str(error)[:200])
                 raise LLMUnavailable(describe_llm_error(error)) from error
-            # 6. Keep only citations of sources the model was actually shown
-            answer, cited = validate_citations(raw_answer, sources)
-            abstained = False
+
+            if self._says_not_found(raw_answer):
+                # the sources were read and hold no answer: say so in words
+                # that fit where the user was looking
+                if comparing_tabs:
+                    answer = config.TABS_NOT_COVERED_TEXT
+                elif has_open_page:
+                    answer = config.PAGE_NOT_COVERED_TEXT
+                else:
+                    answer = config.ABSTAIN_TEXT
+                abstained = True
+            else:
+                # 6. Keep only citations of sources the model was actually shown
+                answer, cited = validate_citations(raw_answer, sources)
+                # 7. Check each cited sentence against the passage it cites,
+                #    and withdraw the citation where the passage does not
+                #    support it (the model stating what it already knew).
+                #    Sources left with no supported sentence drop out.
+                answer = self._evidence.mark_unsupported(
+                    answer, {source.n: source.text for source in cited}
+                )
+                answer, cited = validate_citations(answer, sources)
+                abstained = False
+                # 8. Narrow each cited passage to the sentences that support
+                #    the answer; these are what the page highlights
+                highlights = await self._supporting_sentences(answer, cited)
 
         latency_ms = int((time.monotonic() - started) * 1000)
 
-        # 7. Log the exchange for the evaluation harness
+        # 9. Log the exchange for the evaluation harness
         self._query_log.record(
             device_id=device_id,
             question=request.question,
@@ -238,26 +281,38 @@ class MemoryOrchestrator:
         return AskOut(
             answer=answer,
             abstained=abstained,
-            sources=[self._source_out(source) for source in cited],
+            sources=[
+                self._source_out(source, highlights.get(source.n, [])) for source in cited
+            ],
             filters=FilterOut(**parsed.model_dump()),
             latency_ms=latency_ms,
         )
 
-    async def _open_page_passages(
-        self,
-        page: CurrentPageIn,
-        query_vector: Sequence[float],
-        char_budget: int,
-    ) -> List[Any]:
-        """Turn one open page into the passages relevant to the question.
+    async def _understand_question(self, request: AskIn, comparing_tabs: bool) -> ParsedQuery:
+        """Work out what to search for, and any date or site filters.
+
+        Args:
+            request: The question and the conversation so far.
+            comparing_tabs: Whether the user ticked the tabs to answer from
+                (then there is nothing to filter, and the question is used as is).
+
+        Returns:
+            The topical query and its filters.
+        """
+
+        if request.no_filters or comparing_tabs:
+            return ParsedQuery(semantic_query=request.question)
+        return await self._query_filter.parse(request.question, request.history)
+
+    async def _prepare_open_page(self, page: CurrentPageIn) -> Optional[Tuple[List[Any], Any]]:
+        """Split one open page into passages and embed them.
 
         Args:
             page: The open tab as sent by the extension.
-            query_vector: The embedding of the question.
-            char_budget: Maximum total characters of passage text from this page.
 
         Returns:
-            The selected chunks in page order; empty if nothing is readable.
+            The page's chunks and their embedding matrix, or None if the page
+            has nothing readable.
         """
 
         # a. Choose the page's content: a video's transcript, else what the
@@ -269,7 +324,7 @@ class MemoryOrchestrator:
 
         article_html = self._live_pages.article_html(page, transcript, stored_text)
         if not article_html:
-            return []
+            return None
 
         # b. Chunk and embed it — once per page; follow-up questions reuse it
         cached = self._live_pages.cached_passages(page.url, article_html)
@@ -277,10 +332,56 @@ class MemoryOrchestrator:
             _, chunks = self._chunking.chunk(scrub(article_html).text)
             vectors = await self._embedding.embed_passages([chunk.text for chunk in chunks])
             cached = self._live_pages.cache_passages(page.url, article_html, chunks, vectors)
-        chunks, matrix = cached
+        return cached
 
-        # c. Keep the passages closest to the question, within the budget
-        return self._live_pages.select(chunks, matrix, query_vector, char_budget)
+    def _says_not_found(self, raw_answer: str) -> bool:
+        """Whether the model reported that the sources hold no answer."""
+
+        return raw_answer.strip(" \n\t`*\"'.").upper().startswith(NOT_FOUND)
+
+    async def _supporting_sentences(
+        self,
+        answer: str,
+        cited: List[Source],
+    ) -> Dict[int, List[str]]:
+        """For each cited passage, find the sentences that back up the answer.
+
+        Args:
+            answer: The validated answer, with [n] citations.
+            cited: The sources the answer cites.
+
+        Returns:
+            Source number -> exact sentences of its passage to highlight.
+        """
+
+        # a. Which answer sentences cite which source, and each cited
+        #    passage split into sentences
+        claims = self._evidence.claims(answer)
+        spans = {
+            source.n: self._evidence.spans(source.text)
+            for source in cited
+            if claims.get(source.n)
+        }
+        spans = {number: found for number, found in spans.items() if found}
+        if not spans:
+            return {}
+
+        # b. Embed all of them in one local batch
+        texts: List[str] = []
+        for number, found in spans.items():
+            texts += found + claims[number]
+        vectors = await self._embedding.embed_passages(texts)
+
+        # c. Per source, keep the sentences closest to the claims citing it
+        highlights: Dict[int, List[str]] = {}
+        position = 0
+        for number, found in spans.items():
+            span_vectors = vectors[position : position + len(found)]
+            position += len(found)
+            claim_vectors = vectors[position : position + len(claims[number])]
+            position += len(claims[number])
+            highlights[number] = self._evidence.select(found, span_vectors, claim_vectors)
+        return highlights
 
     async def _transcript_for(self, url: str) -> Optional[str]:
         """Fetch the transcript when the URL is a YouTube video, else None."""
@@ -290,10 +391,11 @@ class MemoryOrchestrator:
             return None
         return await self._transcripts.fetch_transcript(video_id)
 
-    def _source_out(self, source: Source) -> SourceOut:
+    def _source_out(self, source: Source, highlights: List[str]) -> SourceOut:
         """Shape a cited source for the API response."""
 
         return SourceOut(
+            highlights=highlights,
             n=source.n,
             title=source.title,
             url=source.url,

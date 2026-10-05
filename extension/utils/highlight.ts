@@ -10,6 +10,7 @@
 // touching the page's DOM, so the original page is left exactly as it was.
 
 const HIGHLIGHT_NAME = "browser-memory";
+const PASSAGE_HIGHLIGHT = "browser-memory-passage";
 const STYLE_ID = "browser-memory-highlight-style";
 const SKIPPED_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "TEXTAREA"]);
 const MIN_BLOCK_CHARS = 12;
@@ -106,70 +107,110 @@ function locateBlock(index: TextIndex, block: string, from: number): [number, nu
   return [head, tail + ANCHOR_CHARS];
 }
 
-function locatePassage(index: TextIndex, passage: string): Range[] {
+// Where a passage sits on the page, as [start, end) spans in squashed text.
+function locatePassage(index: TextIndex, passage: string): [number, number][] {
   const whole = squash(passage);
   if (!whole) return [];
 
   const at = index.text.indexOf(whole);
-  if (at >= 0) return [rangeBetween(index, at, at + whole.length)];
+  if (at >= 0) return [[at, at + whole.length]];
 
   // A passage is several blocks (heading, paragraphs) joined by blank lines;
   // locate each on its own.
-  const ranges: Range[] = [];
+  const spans: [number, number][] = [];
   let cursor = 0;
   for (const block of passage.split(/\n\s*\n/)) {
     const squashed = squash(block);
     if (squashed.length < MIN_BLOCK_CHARS) continue;
     const found = locateBlock(index, squashed, cursor);
     if (!found) continue;
-    ranges.push(rangeBetween(index, found[0], found[1]));
+    spans.push(found);
     cursor = found[1];
   }
-  return ranges;
+  return spans;
 }
 
 function ensureStyle(): void {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement("style");
   style.id = STYLE_ID;
-  style.textContent = `::highlight(${HIGHLIGHT_NAME}) { background-color: #ffe066; color: #111; }`;
+  // two levels: the cited passage as a faint wash, and inside it the
+  // sentences that support the answer in solid yellow
+  style.textContent =
+    `::highlight(${PASSAGE_HIGHLIGHT}) { background-color: rgba(255, 214, 51, 0.22); }\n` +
+    `::highlight(${HIGHLIGHT_NAME}) { background-color: #ffd633; color: #111; }`;
   document.documentElement.appendChild(style);
 }
 
 export function clearHighlights(): void {
   (CSS as any).highlights?.delete(HIGHLIGHT_NAME);
+  (CSS as any).highlights?.delete(PASSAGE_HIGHLIGHT);
 }
 
-// Highlights every passage it can find and scrolls to the first one.
+export interface PassageSpec {
+  text: string; // the cited passage
+  key?: string[]; // the sentences in it that support the answer
+}
+
+// Marks each cited passage faintly and its supporting sentences strongly,
+// then scrolls to the first supporting sentence. A passage with no supporting
+// sentences singled out is marked strongly as a whole.
 // Returns how many of the passages were located on this page.
-export function highlightPassages(passages: string[]): { found: number; total: number } {
+export function highlightPassages(passages: PassageSpec[]): { found: number; total: number } {
   clearHighlights();
-  if (!document.body) return { found: 0, total: passages.length };
+  const total = passages.length;
+  if (!document.body) return { found: 0, total };
 
   const index = buildIndex();
-  const ranges: Range[] = [];
+  const passageRanges: Range[] = [];
+  const keyRanges: Range[] = [];
   let found = 0;
+
   for (const passage of passages) {
-    const located = locatePassage(index, passage);
-    if (located.length) found += 1;
-    ranges.push(...located);
+    const located = locatePassage(index, passage.text);
+    const from = located.length ? located[0][0] : 0;
+
+    const keys: Range[] = [];
+    for (const sentence of passage.key ?? []) {
+      const squashed = squash(sentence);
+      if (squashed.length < MIN_BLOCK_CHARS) continue;
+      // look inside the passage first, so a repeated sentence elsewhere on
+      // the page is not picked instead
+      const span = locateBlock(index, squashed, from);
+      if (span) keys.push(rangeBetween(index, span[0], span[1]));
+    }
+
+    if (located.length || keys.length) found += 1;
+    const whole = located.map(([start, end]) => rangeBetween(index, start, end));
+    if (keys.length) {
+      passageRanges.push(...whole);
+      keyRanges.push(...keys);
+    } else {
+      keyRanges.push(...whole);
+    }
   }
-  if (!ranges.length) return { found: 0, total: passages.length };
+
+  if (!keyRanges.length) return { found: 0, total };
 
   const registry = (CSS as any).highlights;
-  if (registry && typeof (window as any).Highlight === "function") {
+  const Highlight = (window as any).Highlight;
+  if (registry && typeof Highlight === "function") {
     ensureStyle();
-    registry.set(HIGHLIGHT_NAME, new (window as any).Highlight(...ranges));
+    if (passageRanges.length) registry.set(PASSAGE_HIGHLIGHT, new Highlight(...passageRanges));
+    const strong = new Highlight(...keyRanges);
+    strong.priority = 1; // drawn over the faint passage wash
+    registry.set(HIGHLIGHT_NAME, strong);
   } else {
-    // very old browser: fall back to selecting the first passage
+    // very old browser: fall back to selecting the first sentence
     const selection = window.getSelection();
     selection?.removeAllRanges();
-    selection?.addRange(ranges[0]);
+    selection?.addRange(keyRanges[0]);
   }
 
-  ranges[0].startContainer.parentElement?.scrollIntoView({
-    behavior: "smooth",
-    block: "center",
-  });
-  return { found, total: passages.length };
+  // the first supporting sentence in page order, not in citation order
+  const first = keyRanges.reduce((a, b) =>
+    a.compareBoundaryPoints(Range.START_TO_START, b) <= 0 ? a : b,
+  );
+  first.startContainer.parentElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+  return { found, total };
 }

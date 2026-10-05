@@ -579,8 +579,12 @@ def hybrid_search(
 
     rankings: List[List[int]] = []
 
+    # how close each chunk is to the question, kept on every returned row so
+    # callers can tell a strong match from "the least bad of an unrelated lot"
+    ids, similarities = _similarities(embedding)
+    similarity_of = dict(zip(ids.tolist(), similarities.tolist()))
+
     if use_vectors:
-        ids, similarities = _similarities(embedding)
         if eligible is not None and ids.size:
             similarities = np.where(np.isin(ids, list(eligible)), similarities, -np.inf)
         order = np.argsort(-similarities)[: config.RETRIEVAL_CANDIDATES]
@@ -597,6 +601,7 @@ def hybrid_search(
     rows = _chunk_rows(list(scores))
     for chunk_id, row in rows.items():
         row["score"] = scores[chunk_id] + config.READ_SCORE_RANK_BOOST * row["read_score"]
+        row["similarity"] = float(similarity_of.get(chunk_id, 0.0))
 
     return sorted(rows.values(), key=lambda row: -row["score"])[:limit]
 

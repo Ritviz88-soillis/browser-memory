@@ -67,3 +67,24 @@ class RetrievalService:
         """
 
         return [row for row in rows if row["url"] not in urls]
+
+    def similar_enough(
+        self,
+        rows: List[Dict[str, Any]],
+        min_similarity: float,
+    ) -> List[Dict[str, Any]]:
+        """Keep only chunks that are genuinely close to the question.
+
+        Search always returns its best matches, even when memory holds
+        nothing on the topic. Beside an open page, those leftovers only
+        distract, so they are dropped.
+
+        Args:
+            rows: Chunks returned by ``search`` (each carries ``similarity``).
+            min_similarity: The cosine similarity a chunk must reach.
+
+        Returns:
+            The rows at or above the floor, order unchanged.
+        """
+
+        return [row for row in rows if row["similarity"] >= min_similarity]

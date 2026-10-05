@@ -1,12 +1,41 @@
 import { useState } from "react";
 import { SourceOut } from "@/utils/api";
-import { showPassages } from "@/utils/passages";
+import { pageKey, passageOf, showPassages } from "@/utils/passages";
 import { ChatMessage } from "../hooks/useChat";
+import AnswerText from "./AnswerText";
 
-// Content renders as PLAIN TEXT, deliberately. The answer contains retrieved
-// page text; innerHTML-style rendering would let a malicious page inject
-// markup that executes inside the extension. Citations become buttons by
-// splitting the string — still only React text nodes and elements we create.
+interface PageGroup {
+  key: string;
+  title: string;
+  url: string;
+  domain: string;
+  live: boolean;
+  visited: string;
+  sources: SourceOut[];
+}
+
+// One entry per page, holding the passages cited from it. An answer often
+// cites several passages of the same page; listing the page once is easier
+// to read, and when tabs are compared it shows what came from which tab.
+function groupByPage(sources: SourceOut[]): PageGroup[] {
+  const groups = new Map<string, PageGroup>();
+  for (const source of sources) {
+    const key = `${source.tab_id ?? ""}|${pageKey(source.url)}`;
+    const group = groups.get(key) ?? {
+      key,
+      title: source.title,
+      url: source.url,
+      domain: source.domain,
+      live: source.live,
+      visited: source.visited,
+      sources: [],
+    };
+    group.sources.push(source);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
 export default function MessageBubble({ message }: { message: ChatMessage }) {
   // source numbers whose passage could not be found on the page
   const [missing, setMissing] = useState<number[]>([]);
@@ -22,11 +51,12 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
   const r = message.result;
   const abstained = r?.abstained;
   const sources = new Map((r?.sources ?? []).map((s) => [s.n, s]));
+  const pages = groupByPage(r?.sources ?? []);
 
-  // Jump to the cited passage: switch to (or open) its page and highlight it.
+  // Jump to where a citation comes from: switch to (or open) its page and
+  // highlight the supporting sentences.
   async function show(source: SourceOut) {
-    // answers saved before passages existed only carry the short snippet
-    const result = await showPassages(source.url, [source.passage ?? source.snippet], {
+    const result = await showPassages(source.url, [passageOf(source)], {
       tabId: source.tab_id,
     }).catch(() => null);
     setMissing((m) =>
@@ -44,48 +74,41 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
         ) : (
           <>
             {r && <FilterChips f={r.filters} />}
-            {message.note && <div className="chips">{message.note}</div>}
-            <p>
-              {message.content.split(/(\[\d{1,3}\])/).map((part, i) => {
-                const source = sources.get(Number(part.slice(1, -1)));
-                return /^\[\d{1,3}\]$/.test(part) && source ? (
-                  <button
-                    key={i}
-                    className="cite"
-                    title="Show this passage on the page"
-                    onClick={() => void show(source)}
-                  >
-                    {part}
-                  </button>
-                ) : (
-                  part
-                );
-              })}
-            </p>
-            {r && r.sources.length > 0 && (
-              <ol className="sources">
-                {r.sources.map((s) => (
-                  <li key={s.n} value={s.n}>
-                    <a href={s.url} target="_blank" rel="noreferrer">
-                      {s.title}
+            {message.note && <div className="note">{message.note}</div>}
+            <AnswerText
+              text={message.content}
+              citable={new Set(sources.keys())}
+              onCite={(n) => void show(sources.get(n)!)}
+            />
+            {pages.length > 0 && (
+              <div className="sources">
+                {pages.map((page) => (
+                  <div className="source-page" key={page.key}>
+                    <a href={page.url} target="_blank" rel="noreferrer">
+                      {page.title}
                     </a>
                     <span className="meta">
-                      {s.domain} · {s.live ? "open tab" : s.visited.slice(0, 10)}
+                      {page.domain} · {page.live ? "open tab" : page.visited.slice(0, 10)}
                     </span>
-                    {s.heading_path.length > 0 && (
-                      <span className="where">§ {s.heading_path.join(" › ")}</span>
-                    )}
-                    <button className="show" onClick={() => void show(s)}>
-                      show passage
-                    </button>
-                    {missing.includes(s.n) && (
-                      <span className="where">
-                        couldn't find this passage on the page (it may have changed)
-                      </span>
-                    )}
-                  </li>
+                    {page.sources.map((s) => (
+                      <button
+                        key={s.n}
+                        className="passage"
+                        title="Show this on the page"
+                        onClick={() => void show(s)}
+                      >
+                        <b>[{s.n}]</b>{" "}
+                        {s.heading_path.length > 0
+                          ? s.heading_path.slice(-2).join(" › ")
+                          : "show on page"}
+                        {missing.includes(s.n) && (
+                          <span className="lost"> · not found on the page (it may have changed)</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 ))}
-              </ol>
+              </div>
             )}
           </>
         )}

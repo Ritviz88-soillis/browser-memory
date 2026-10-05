@@ -14,6 +14,7 @@ Set LIVE_LLM=1 to run the same test against the real model.
 import asyncio
 import hashlib
 import os
+import re
 import secrets
 import uuid
 
@@ -24,11 +25,26 @@ from langchain_core.runnables import RunnableLambda
 import config  # noqa: F401  (loads .env so the key check below sees it)
 
 pytestmark = pytest.mark.skipif(
-    not (os.environ.get("GROQ_API_KEY") or os.environ.get("GOOGLE_API_KEY")),
+    not any(
+        os.environ.get(key)
+        for key in ("GROQ_API_KEY", "HUGGINGFACEHUB_API_TOKEN", "GOOGLE_API_KEY")
+    ),
     reason="no LLM key configured (the app builds its chat model at startup)",
 )
 
 TEST_DOMAIN = "testpage-example.dev"
+
+
+def stand_in_answer(prompt) -> str:
+    """Answer the way a grounded model would: restate the last line of each
+    of the first two sources and cite it."""
+
+    text = prompt.to_messages()[-1].content
+    contents = re.findall(r'content: """\n(.*?)\n"""', text, re.DOTALL)
+    return " ".join(
+        f"{content.strip().splitlines()[-1]} [{number}]"
+        for number, content in enumerate(contents[:2], start=1)
+    )
 
 
 @pytest.fixture
@@ -40,9 +56,7 @@ async def client(memory):
 
     if os.environ.get("LIVE_LLM") != "1":
         orchestrator = get_orchestrator()
-        orchestrator._generation = GenerationService(
-            model=RunnableLambda(lambda _prompt: "A grounded answer [1], with more detail [2].")
-        )
+        orchestrator._generation = GenerationService(model=RunnableLambda(stand_in_answer))
         orchestrator._query_filter = QueryFilterService(
             model=RunnableLambda(lambda _prompt: '{"semantic_query": "stand-in"}')
         )
@@ -162,6 +176,11 @@ async def test_full_lifecycle(client):
     live = [s for s in r.json()["sources"] if s["live"]]
     assert live, "the answer must cite the open page"
     assert live[0]["tab_id"] == 7 and "412 metres" in live[0]["passage"]
+    # ...and narrows the passage to the sentence that supports the answer
+    assert live[0]["highlights"] == [
+        "The Glimmer tower in Zarnville is 412 metres tall and opened in 1987."
+    ]
+    assert all(h in live[0]["passage"] for h in live[0]["highlights"])
 
     # comparing ticked tabs: the answer draws on each tab and on nothing else,
     # even though memory holds a page (the zebra notes) that could match
@@ -217,6 +236,30 @@ async def test_full_lifecycle(client):
             orchestrator._generation = working
         assert r.status_code == 503
         assert "free usage limit" in r.json()["detail"]
+
+        # when the model finds no answer in the sources, the reply says so in
+        # words that fit where the user was looking, and counts as abstaining
+        orchestrator._generation = GenerationService(model=RunnableLambda(lambda _p: "NOT_FOUND."))
+        try:
+            on_a_page = await client.post(
+                "/ask",
+                json={
+                    "question": "what does this page say about cricket?",
+                    "no_filters": True,
+                    "current_page": {"url": "https://live.example/tower", "html": "<p>The tower is tall and grey.</p>"},
+                },
+                headers=auth,
+            )
+            across_tabs = await client.post(
+                "/ask",
+                json={"question": "the price of gold?", "tabs": [tab(11, "Aurora", "61,000")]},
+                headers=auth,
+            )
+        finally:
+            orchestrator._generation = working
+        assert on_a_page.json()["abstained"] is True and on_a_page.json()["sources"] == []
+        assert on_a_page.json()["answer"] == config.PAGE_NOT_COVERED_TEXT
+        assert across_tabs.json()["answer"] == config.TABS_NOT_COVERED_TEXT
 
     # proactive recall: a different page on the same topic surfaces the ingested one
     topic = (

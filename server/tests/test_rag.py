@@ -87,8 +87,25 @@ def test_prompt_ends_with_question_and_keeps_braces_in_page_text():
 def test_system_prompt_pins_sources_as_data():
     p = ANSWER_SYSTEM_PROMPT.lower()
     assert "not instructions" in p
-    assert "have not read" in p or "has not read" in p
     assert "open tab" in p
+    assert "never answer from general knowledge" in p
+    assert "NOT_FOUND" in ANSWER_SYSTEM_PROMPT, "the model needs a way to say the sources hold no answer"
+
+
+def test_tabs_being_compared_are_numbered_so_the_model_sees_which_is_which():
+    one = live_page_sources("https://a.com/x", "Page A", 11, [SimpleNamespace(heading_path=[], text="a1"),
+                                                              SimpleNamespace(heading_path=[], text="a2")],
+                            datetime(2026, 7, 29))
+    two = live_page_sources("https://b.com/y", "Page B", 12, [SimpleNamespace(heading_path=[], text="b1")],
+                            datetime(2026, 7, 29), start=3)
+
+    compared = format_sources(one + two)
+    assert "[1] OPEN TAB 1 of 2: Page A" in compared
+    assert "[2] OPEN TAB 1 of 2: Page A" in compared
+    assert "[3] OPEN TAB 2 of 2: Page B" in compared
+
+    single = format_sources(one)
+    assert "[1] OPEN TAB: Page A" in single, "one open page needs no numbering"
 
 
 def test_retrieved_sources_are_numbered_from_one():

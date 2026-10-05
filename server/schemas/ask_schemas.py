@@ -63,6 +63,9 @@ class SourceOut(BaseModel):
     visited: datetime
     snippet: str
     passage: str                  # the exact text cited, for highlighting on the page
+    # the sentences of the passage that support the answer (exact substrings),
+    # highlighted most strongly; empty when none could be singled out
+    highlights: List[str] = Field(default_factory=list)
     live: bool = False            # from a tab open right now
     tab_id: Optional[int] = None
 

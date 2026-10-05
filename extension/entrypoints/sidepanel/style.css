@@ -71,6 +71,21 @@ nav button.active { background: var(--panel); color: var(--text); font-weight: 6
 .bubble.assistant.abstained { color: var(--muted); font-style: italic; }
 .bubble p { margin: 0; white-space: pre-wrap; }
 
+/* a rendered answer: paragraphs, lists, code */
+.answer > * + * { margin-top: 8px; }
+.answer ul, .answer ol { margin: 0; padding-left: 20px; }
+.answer li + li { margin-top: 4px; }
+.answer code, .answer pre {
+  font-family: ui-monospace, Consolas, monospace; font-size: 12px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+}
+.answer code { padding: 1px 4px; }
+.answer pre { margin: 0; padding: 8px 10px; overflow-x: auto; white-space: pre; line-height: 1.45; }
+.note {
+  font-size: 11.5px; color: #facc15; margin-bottom: 8px; padding: 5px 8px;
+  border-left: 2px solid #facc15; background: color-mix(in srgb, #facc15 8%, transparent);
+}
+
 .dots i {
   display: inline-block; width: 7px; height: 7px; margin-right: 3px;
   border-radius: 50%; background: var(--faint);
@@ -81,20 +96,32 @@ nav button.active { background: var(--panel); color: var(--text); font-weight: 6
 @keyframes bounce { 30% { transform: translateY(-4px); } }
 
 .chips { font-size: 11px; color: var(--faint); margin-bottom: 6px; }
-.sources { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; }
-.sources a { color: #93b0ff; }
 .cite {
   background: none; border: none; padding: 0 1px; cursor: pointer;
   color: #93b0ff; font: inherit; font-weight: 600;
 }
 .cite:hover { text-decoration: underline; }
-.sources li { margin-bottom: 5px; }
-.sources .where { display: block; color: var(--faint); font-size: 11px; }
-.sources .show {
-  background: none; border: none; padding: 0; cursor: pointer;
-  color: #ffe066; font-size: 11px;
+.unverified {
+  font-size: 10px; padding: 1px 5px; border-radius: 999px; white-space: nowrap; cursor: help;
+  color: #facc15; border: 1px solid color-mix(in srgb, #facc15 55%, transparent);
 }
-.sources .show:hover { text-decoration: underline; }
+
+/* sources, one block per page with the passages cited from it */
+.sources {
+  margin-top: 10px; padding-top: 8px; font-size: 12.5px;
+  border-top: 1px solid var(--border);
+}
+.source-page + .source-page { margin-top: 8px; }
+.sources a { color: #93b0ff; text-decoration: none; }
+.sources a:hover { text-decoration: underline; }
+.sources .passage {
+  display: block; width: 100%; text-align: left; margin-top: 3px;
+  background: none; border: none; padding: 2px 0 2px 8px; cursor: pointer;
+  border-left: 2px solid #ffd633; color: var(--muted); font-size: 11.5px;
+}
+.sources .passage:hover { color: var(--text); }
+.sources .passage b { color: #ffd633; font-weight: 600; }
+.sources .lost { color: var(--danger); }
 .sources .meta, .page-list .meta { color: var(--faint); font-size: 11px; margin-left: 4px; display: inline-block; }
 
 .related {

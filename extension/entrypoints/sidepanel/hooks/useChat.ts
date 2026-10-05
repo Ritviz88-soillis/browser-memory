@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, AskOut, CurrentPage } from "@/utils/api";
 import { getCurrentPageContext, getPageContext } from "@/utils/pageContext";
-import { showPassages } from "@/utils/passages";
+import type { PassageSpec } from "@/utils/highlight";
+import { passageOf, showPassages } from "@/utils/passages";
 import { Conversation, saveConversation } from "@/utils/chatStore";
 
 export interface ChatMessage {
@@ -21,20 +22,46 @@ async function readTab(tabId: number): Promise<CurrentPage | null> {
   return tab ? getPageContext(tab, { withHtml: true }) : null;
 }
 
+const VIDEO_RE = /youtube\.com|youtu\.be/;
+const THIN_PAGE_CHARS = 900; // roughly 150 words
+
 // A video page has no article text, but the server can fetch its transcript.
 function isReadable(page: CurrentPage): boolean {
-  return Boolean(page.html || page.text) || /youtube\.com|youtu\.be/.test(page.url);
+  return Boolean(page.html || page.text) || VIDEO_RE.test(page.url);
+}
+
+// An index or landing page has almost nothing to summarise or compare.
+function isThin(page: CurrentPage): boolean {
+  return !VIDEO_RE.test(page.url) && (page.text ?? "").length < THIN_PAGE_CHARS;
+}
+
+// Tell the user about ticked tabs that will weaken the answer, so a poor
+// comparison is explained instead of looking like a fault.
+function tabsNote(unread: number, thin: CurrentPage[]): string | undefined {
+  const parts: string[] = [];
+  if (unread) {
+    parts.push(
+      `${unread} selected ${unread === 1 ? "tab" : "tabs"} couldn't be read (a sleeping tab needs to be opened once).`,
+    );
+  }
+  if (thin.length) {
+    const names = thin.map((p) => `"${(p.title ?? p.url).slice(0, 40)}"`).join(", ");
+    parts.push(
+      `${names} ${thin.length === 1 ? "has" : "have"} very little readable text; open the article itself, not a menu or index page.`,
+    );
+  }
+  return parts.length ? parts.join(" ") : undefined;
 }
 
 // As soon as an answer arrives, light up the passages it cites on the pages
 // that are already open — without stealing focus from the tab being read.
 async function highlightCitedOpenPassages(result: AskOut): Promise<void> {
-  const byPage = new Map<string, { url: string; tabId: number | null; passages: string[] }>();
+  const byPage = new Map<string, { url: string; tabId: number | null; passages: PassageSpec[] }>();
   for (const source of result.sources) {
     if (!source.live) continue;
     const key = `${source.tab_id}|${source.url}`;
     const entry = byPage.get(key) ?? { url: source.url, tabId: source.tab_id, passages: [] };
-    entry.passages.push(source.passage);
+    entry.passages.push(passageOf(source));
     byPage.set(key, entry);
   }
   for (const { url, tabId, passages } of byPage.values()) {
@@ -99,11 +126,8 @@ export function useChat() {
       if (tabIds.length) {
         const picked = await Promise.all(tabIds.map(readTab));
         tabs = picked.filter((p): p is CurrentPage => p !== null && isReadable(p));
-        const unread = tabIds.length - tabs.length;
         if (!tabs.length) throw new Error("None of the selected tabs could be read.");
-        if (unread) {
-          note = `${unread} selected ${unread === 1 ? "tab" : "tabs"} couldn't be read (a sleeping tab needs to be opened once).`;
-        }
+        note = tabsNote(tabIds.length - tabs.length, tabs.filter(isThin));
       } else {
         currentPage = await getCurrentPageContext({ withHtml: true });
       }

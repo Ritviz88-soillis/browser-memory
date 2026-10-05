@@ -102,11 +102,23 @@ def format_sources(sources: List[Source]) -> str:
 
     parts: List[str] = []
 
+    # number the open tabs, so that when several are being compared the model
+    # can see which passages belong together ("OPEN TAB 2 of 3")
+    open_tabs: List[tuple] = []
+    for source in sources:
+        tab = (source.tab_id, source.url)
+        if source.live and tab not in open_tabs:
+            open_tabs.append(tab)
+
     for source in sources:
         breadcrumb = " > ".join(source.heading_path) if source.heading_path else "-"
         if source.live:
+            label = "OPEN TAB"
+            if len(open_tabs) > 1:
+                position = open_tabs.index((source.tab_id, source.url)) + 1
+                label = f"OPEN TAB {position} of {len(open_tabs)}"
             parts.append(
-                f"[{source.n}] OPEN TAB: {source.title} ({source.domain})\n"
+                f"[{source.n}] {label}: {source.title} ({source.domain})\n"
                 f"    section: {breadcrumb}\n"
                 f"    url: {source.url}\n"
                 f'    content: """\n{source.text}\n"""'

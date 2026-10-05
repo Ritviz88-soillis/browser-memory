@@ -32,6 +32,7 @@ export interface SourceOut {
   visited: string;
   snippet: string;
   passage: string; // the exact text cited, for highlighting on the page
+  highlights: string[]; // the sentences in it that support the answer
   live: boolean; // from a tab open right now
   tab_id: number | null;
 }
